@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRDG Rummy</title>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<!-- ================================================= -->
+<!-- JOIN SCREEN -->
+<!-- ================================================= -->
+
+<div id="joinScreen" class="join-screen">
+
+    <h2>🎮 Join Rummy Table</h2>
+
+    <input
+        id="tableIdInput"
+        type="number"
+        placeholder="Table ID"
+    >
+
+    <input
+        id="password"
+        type="password"
+        placeholder="Password"
+    >
+
+    <input
+        id="nickname"
+        type="text"
+        placeholder="Nickname"
+    >
+
+    <button type="button" onclick="joinTable()">
+        Join Game
+    </button>
+
+</div>
+
+<!-- ================================================= -->
+<!-- LOBBY SCREEN -->
+<!-- ================================================= -->
+
+<div id="lobbyScreen" class="lobby-screen hidden">
+
+    <h2>🎮 Waiting Room</h2>
+
+    <div class="lobby-card">
+
+        <div>
+            Table :
+            <span id="lobbyTableId">-</span>
+        </div>
+
+        <div>
+            Your Seat :
+            <span id="lobbySeat">-</span>
+        </div>
+
+        <div>
+            Players :
+            <span id="lobbyPlayers">0</span>/6
+        </div>
+
+        <div>
+            Starts In :
+            <span id="lobbyTimer">60</span>
+            sec
+        </div>
+
+    </div>
+
+    <h3>Joined Players</h3>
+
+    <div id="lobbyPlayerList" class="lobby-player-list">
+
+        <div id="seat1">Seat 1 : Empty</div>
+        <div id="seat2">Seat 2 : Empty</div>
+        <div id="seat3">Seat 3 : Empty</div>
+        <div id="seat4">Seat 4 : Empty</div>
+        <div id="seat5">Seat 5 : Empty</div>
+        <div id="seat6">Seat 6 : Empty</div>
+
+    </div>
+
+</div>
+
+<!-- ================================================= -->
+<!-- GAME SCREEN -->
+<!-- ================================================= -->
+
+<div id="app" class="hidden">
+
+    <!-- TOP BAR -->
+
+    <header class="topbar">
+
+        <div>
+            Table :
+            <span id="tableIdDisplay">-</span>
+        </div>
+
+        <div>
+            Turn :
+            <span id="turnSeat">-</span>
+        </div>
+        
+        
+        <div>
+       ⏱ Turn Timer :
+          <span id="turnTimer">40</span>
+        </div>
+
+
+    </header>
+
+    <!-- TABLE -->
+
+    <main class="table">
+
+        <!-- OPPONENTS -->
+
+        <section id="opponents" class="opponents">
+
+            <div id="opp1" class="opponent-seat"></div>
+            <div id="opp2" class="opponent-seat"></div>
+            <div id="opp3" class="opponent-seat"></div>
+            <div id="opp4" class="opponent-seat"></div>
+            <div id="opp5" class="opponent-seat"></div>
+
+       
+        </section>
+
+        <!-- CENTER AREA -->
+
+        <section class="center">
+
+        <div class="table-piles">
+
+
+        <div class="open-area">
+            <div id="openVisual" class="table-card clickable-pile">-</div>
+            
+        </div>
+
+        <div class="stock-area">
+
+            <div id="jokerVisual" class="table-card joker-card">
+                -
+            </div>
+
+            <div id="stockCard" class="card-back clickable-pile">
+            </div>
+
+           
+        </div>
+
+
+
+
+                        
+
+        </div>
+
+            <div class="actions">
+
+
+                <button
+                    id="btnDiscard"
+                    type="button"
+                    onclick="discard()">
+                    Discard
+                </button>
+
+                <button
+                    id="btnDeclare"
+                    type="button"
+                    onclick="openDeclare()">
+                    Declare
+                </button>
+
+            </div>
+
+        </section>
+
+        <!-- MY HAND -->
+       <div id="myPlayerPanel" class="my-player-panel">
+
+    <div id="myInfo">You</div>
+
+    <div id="myScore">
+        Score : 0
+    </div>
+
+</div>
+
+<section id="my-hand" class="hand">
+
+    <div class="group-box" id="group0"></div>
+    <div class="group-box" id="group1"></div>
+    <div class="group-box" id="group2"></div>
+    <div class="group-box" id="group3"></div>
+
+</section>
+        
+    </main>
+
+    <!-- CHAT -->
+
+    <aside
+        id="chat-box"
+        class="chat">
+    </aside>
+
+</div>
+
+<!-- ================================================= -->
+<!-- DECLARE PANEL -->
+<!-- ================================================= -->
+
+<div
+    id="declarePanel"
+    class="declare-panel hidden">
+
+    <h3>Arrange Your Cards</h3>
+
+    <div class="groups">
+
+        <div class="group" data-group="0">
+            <h4>Group 1</h4>
+        </div>
+
+        <div class="group" data-group="1">
+            <h4>Group 2</h4>
+        </div>
+
+        <div class="group" data-group="2">
+            <h4>Group 3</h4>
+        </div>
+
+        <div class="group" data-group="3">
+            <h4>Group 4</h4>
+        </div>
+
+        <div class="group" data-group="4">
+            <h4>Group 5</h4>
+        </div>
+
+    </div>
+
+    <button
+        type="button"
+        onclick="submitDeclaration()">
+        Submit Declaration
+    </button>
+
+    <button
+        type="button"
+        onclick="closeDeclare()">
+        Cancel
+    </button>
+
+</div>
+
+<!-- ================================================= -->
+<!-- HISTORY -->
+<!-- ================================================= -->
+
+<div
+    id="historyCard"
+    class="history-card hidden">
+
+    <h3>🧾 Last Game Summary</h3>
+
+    <div id="historyContent"></div>
+
+    <button
+        type="button"
+        onclick="closeHistory()">
+        Close
+    </button>
+
+</div>
+
+<!-- ================================================= -->
+<!-- SUPABASE -->
+<!-- ================================================= -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<!-- ================================================= -->
+<!-- APP -->
+<!-- ================================================= -->
+
+<script src="app.js"></script>
+
+</body>
+</html>
