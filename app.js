@@ -36,6 +36,9 @@ let state = {
   lastTurnSeat: null,
   dragCard: null,
   currentTurnSeat: null,
+  declarationMode : false,
+  declarationTimerStarted: false,
+  declarationTimerInterval : null,
   myScore: null
 };
 
@@ -118,7 +121,8 @@ function renderHand() {
 
     state.dragCard = null;
 
-    renderHand();
+  renderHand();
+  calculateDealScore();
 };
 
 
@@ -183,6 +187,7 @@ function renderHand() {
                 };
 
                 renderHand();
+                calculateDealScore();
             };
 
             groupEl.appendChild(div);
@@ -205,6 +210,10 @@ function renderHand() {
 async function draw(source) {
 
   if (!state.sessionId) return;
+  if(state.declarationMode){
+
+    return;
+}
 
   const { data, error } = await supabaseClient.rpc("crdg_draw_card", {
     p_session_id: state.sessionId,
@@ -226,6 +235,7 @@ async function draw(source) {
 
     await loadSessionInfo();
     renderHand();
+    calculateDealScore();
 
     updateActionButtons();
 }
@@ -237,6 +247,10 @@ async function draw(source) {
 async function discard() {
 
     if (!state.sessionId) return;
+    if(state.declarationMode){
+
+    return;
+}
 
     const totalCards =
         state.groups.reduce(
@@ -292,6 +306,7 @@ async function discard() {
         state.selectedCard = null;
 
         renderHand();
+        calculateDealScore();
 
         await loadSessionInfo();
     }
@@ -317,7 +332,7 @@ function subscribeRealtime() {
       },
       async () => {
 
-        console.log("REALTIME FIRED");
+        
         await loadSessionInfo();
 
         updateActionButtons();
@@ -326,7 +341,7 @@ function subscribeRealtime() {
     )
     .subscribe((status) => {
 
-    console.log( "REALTIME STATUS:",  status );
+    
 
 });
 }
@@ -348,9 +363,7 @@ async function loadSessionInfo() {
   state.dealerSeat = data.dealer_seat;
   state.currentTurnSeat = data.current_turn_seat;
 
-  console.log(
-    "TURN =", data.current_turn_seat
-);
+  
 
   state.turnStartedAt =    new Date(
         data.turn_started_at
@@ -390,6 +403,26 @@ document.getElementById("jokerVisual").innerText =
       }
 
     state.jokerCard = data.joker_card;
+    state.declarationMode =
+    data.declaration_started || false;
+
+
+          if(
+          state.declarationMode &&
+          !state.declarationTimerStarted
+      ){
+
+          clearInterval(
+              state.turnTimerInterval
+          );
+
+          state.declarationTimerStarted =
+              true;
+
+          startDeclarationTimer();
+
+      }
+
 
 document.getElementById("stockCard").innerText =
     data.stock_pile?.length || 0;
@@ -402,6 +435,57 @@ document.getElementById("stockCard").innerText =
 
 
    updateActionButtons();
+}
+
+
+function startDeclarationTimer(){
+
+    const endTime =
+        Date.now() + 60000;
+
+    state.declarationTimerInterval =
+        setInterval(() => {
+
+        const seconds =
+            Math.max(
+                0,
+                Math.floor(
+                    (endTime - Date.now())
+                    / 1000
+                )
+            );
+
+        document.getElementById(
+          "declarationTimer"
+      ).innerText =
+          "Declared..Arrange Cards (" +
+          seconds +
+          "s)";
+
+        if(seconds <= 0){
+
+            clearInterval(
+                state.declarationTimerInterval
+            );
+
+            document.getElementById(
+                "declarationTimer"
+            ).innerText =
+                "Submitting...";
+
+            onDeclarationTimerExpired();
+
+        }
+
+    }, 1000);
+}
+
+function onDeclarationTimerExpired(){
+
+    alert(
+        "Auto Submit Soon"
+    );
+
 }
 
 
@@ -483,6 +567,14 @@ if(canDraw){
     stockPile.style.pointerEvents =
         "none";
 }
+
+if(state.declarationMode){
+    btnDiscard.disabled = true;
+    btnDeclare.disabled = true;
+
+    return;
+}
+
 }
 
 
@@ -850,6 +942,7 @@ async function enterGame(){
     await loadSessionInfo();
     await loadPlayers();
     renderHand();
+    calculateDealScore();
 
     subscribeRealtime();
 
@@ -883,19 +976,183 @@ async function startGame(){
 
 
 
-// =========================
-// DECLARE (placeholder)
-// =========================
-function openDeclare() {
-  document.getElementById("declarePanel").classList.remove("hidden");
+
+async function declareGame() {
+
+  if(state.declarationMode){
+
+    return;
 }
 
-function closeDeclare() {
-  document.getElementById("declarePanel").classList.add("hidden");
+    const totalCards =
+        state.groups.reduce(
+            (a, g) => a + g.length,
+            0
+        );
+
+    if(totalCards !== 14){
+
+        alert(
+            "You must have 14 cards to declare"
+        );
+
+        return;
+    }
+
+    if(!state.selectedCard){
+
+        alert(
+            "Select one card before declaration"
+        );
+
+        return;
+    }
+
+    if(!confirm( "Confirm Declaration?" )){
+        return;
+    }
+
+    const declareCard =
+        state.selectedCard.card;
+
+    // Create copy of groups
+
+      const groupsForDeclaration =
+          JSON.parse(
+              JSON.stringify(state.groups)
+          );
+
+      // Remove selected card
+
+      groupsForDeclaration[
+          state.selectedCard.group
+      ].splice(
+          state.selectedCard.index,
+          1
+      );
+
+          
+        const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_calculate_running_score",
+            {
+                p_groups: groupsForDeclaration,
+                p_joker_card: state.jokerCard
+            }
+        );
+
+    if(error){
+
+        console.error(error);
+
+        return;
+    }
+
+    const declarationScore = Number(data || 0);
+    const declarationStatus =  data?.[0]?.status;
+
+    //const declarationScore =  0;
+
+    if(declarationScore === 0){
+
+          alert(
+              "VALID DECLARATION"
+          );
+
+
+              const declareCard =
+                state.selectedCard.card;
+
+            const { data, error } =
+                await supabaseClient.rpc(
+                    "crdg_submit_declaration",
+                    {
+                        p_session_id: state.sessionId,
+                        p_table_id: state.tableId,
+                        p_user_id: state.userId,
+                        p_declare_card: declareCard,
+                        p_groups: groupsForDeclaration,
+                        p_joker_card: state.jokerCard
+                    }
+                );
+
+            if(error){
+
+                console.error(error);
+
+                return;
+            }
+
+            console.log(data);
+
+
+
+
+
+
+
+
+      }
+      else{
+
+          alert(
+              "INVALID DECLARATION : "
+              + declarationScore
+          );
+
+      }
+
+
 }
 
-async function submitDeclaration() {
-  alert("Declaration logic already ready for next phase upgrade 🚀");
+
+
+async function calculateDealScore() {
+
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_calculate_running_score",
+            {
+                p_groups: state.groups,
+                p_joker_card: state.jokerCard
+            }
+        );
+
+    if (error) {
+
+        console.error(error);
+
+        return;
+    }
+
+    document.getElementById(
+        "dealScore"
+    ).innerText =
+        "Deal Score : " + data;
+}
+
+function getCardValue(card) {
+
+    if (!card) return 0;
+
+    if (card === "JOKER") {
+        return 0;
+    }
+
+    let rank =
+        card.replace(/[♠♥♦♣]/g, "");
+
+    if (
+        rank === "A" ||
+        rank === "J" ||
+        rank === "Q" ||
+        rank === "K"
+    ) {
+        return 10;
+    }
+
+    return parseInt(rank) || 0;
 }
 
 window.onload = () => {

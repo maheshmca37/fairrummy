@@ -160,7 +160,8 @@
            
         </div>
 
-
+        <div id="declarationTimer">
+       </div>
 
 
                         
@@ -180,7 +181,7 @@
                 <button
                     id="btnDeclare"
                     type="button"
-                    onclick="openDeclare()">
+                    onclick="declareGame()">
                     Declare
                 </button>
 
@@ -189,15 +190,14 @@
         </section>
 
         <!-- MY HAND -->
-       <div id="myPlayerPanel" class="my-player-panel">
+    <div id="myPlayerPanel" class="my-player-panel">
 
     <div id="myInfo">You</div>
 
-    <div id="myScore">
-        Score : 0
-    </div>
+    <div id="myScore"> Score : 0   </div>
+    <div id="dealScore"> Deal Score : 0 </div>
 
-</div>
+    </div>
 
 <section id="my-hand" class="hand">
 
@@ -253,17 +253,6 @@
 
     </div>
 
-    <button
-        type="button"
-        onclick="submitDeclaration()">
-        Submit Declaration
-    </button>
-
-    <button
-        type="button"
-        onclick="closeDeclare()">
-        Cancel
-    </button>
 
 </div>
 

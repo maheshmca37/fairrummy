@@ -449,3 +449,15 @@ body {
     color:red !important;
     font-weight:bold;
 }
+
+#declarationTimer{
+
+    text-align:center;
+
+    font-size:22px;
+
+    font-weight:bold;
+
+    margin-top:10px;
+
+}
