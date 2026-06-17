@@ -39,6 +39,7 @@ let state = {
   declarationMode : false,
   declarationTimerStarted: false,
   declarationTimerInterval : null,
+  resultWindowOpened : false,
   myScore: null
 };
 
@@ -60,6 +61,10 @@ let gameStarting = false;
 let gameEntered = false;
 
 let turnTimerHandle = null;
+
+let observationTimerInterval = null;
+let observationTimeRemaining = 30;
+
 
 document.getElementById( "openVisual").onclick = () => {
   draw("open");
@@ -202,6 +207,53 @@ function renderHand() {
         });
 
     }
+}
+
+
+async function startObservationTimer()
+{
+    clearInterval(
+        observationTimerInterval
+    );
+
+    observationTimeRemaining = 30;
+
+    observationTimerInterval =
+        setInterval(async () =>
+    {
+        observationTimeRemaining--;
+
+        document.getElementById(
+            "observationTimer"
+        ).innerText =
+            observationTimeRemaining;
+
+        if(
+            observationTimeRemaining <= 0
+        )
+        {
+            clearInterval(
+                observationTimerInterval
+            );
+
+            await onObservationTimerExpired();
+        }
+
+    }, 1000);
+}
+
+async function onObservationTimerExpired()
+{
+    document.getElementById(
+        "dealResultModal"
+    ).style.display = "none";
+
+    clearCurrentDealUI();
+
+
+    alert(
+        "Observation Timer Finished"
+    );
 }
 
 // =========================
@@ -434,14 +486,26 @@ document.getElementById("stockCard").innerText =
     }
 
 
+        if (
+            data.deal_results_ready === true &&
+            !state.resultWindowOpened
+        )
+        {
+            state.resultWindowOpened = true;
+
+            loadDealResults();
+            startObservationTimer();
+        }
+
    updateActionButtons();
+   
 }
 
 
 function startDeclarationTimer(){
 
     const endTime =
-        Date.now() + 60000;
+        Date.now() + 40000;
 
     state.declarationTimerInterval =
         setInterval(() => {
@@ -480,10 +544,38 @@ function startDeclarationTimer(){
     }, 1000);
 }
 
-function onDeclarationTimerExpired(){
+async function onDeclarationTimerExpired(){
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_submit_final_groups",
+            {
+                p_session_id:
+                    state.sessionId,
+
+                p_table_id:
+                    state.tableId,
+
+                p_user_id:
+                    state.userId,
+
+                p_groups:
+                    state.groups,
+
+                p_joker_card:
+                    state.jokerCard
+            }
+        );
+
+    if(error){
+
+        console.error(error);
+
+        return;
+    }
 
     alert(
-        "Auto Submit Soon"
+        "Deal Score : " + data
     );
 
 }
@@ -1012,8 +1104,7 @@ async function declareGame() {
         return;
     }
 
-    const declareCard =
-        state.selectedCard.card;
+    const declareCard =  state.selectedCard.card;
 
     // Create copy of groups
 
@@ -1060,8 +1151,7 @@ async function declareGame() {
           );
 
 
-              const declareCard =
-                state.selectedCard.card;
+              const declareCard = state.selectedCard.card;
 
             const { data, error } =
                 await supabaseClient.rpc(
@@ -1076,6 +1166,24 @@ async function declareGame() {
                     }
                 );
 
+            if(data?.[0]?.status === "valid")
+{
+            // NOW remove from actual UI
+
+            state.groups[
+                state.selectedCard.group
+            ].splice(
+                state.selectedCard.index,
+                1
+            );
+
+            state.selectedCard = null;
+
+            renderHand();
+
+            calculateDealScore();
+        }
+
             if(error){
 
                 console.error(error);
@@ -1084,13 +1192,6 @@ async function declareGame() {
             }
 
             console.log(data);
-
-
-
-
-
-
-
 
       }
       else{
@@ -1155,6 +1256,103 @@ function getCardValue(card) {
     return parseInt(rank) || 0;
 }
 
+
+async function loadDealResults()
+{
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_get_deal_results",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+    if(error)
+    {
+        console.error(error);
+        return;
+    }
+
+    document.getElementById(
+    "resultJokerCard"
+).innerHTML =
+`
+<span class="result-joker">
+    Joker : ${state.jokerCard}
+</span>
+`;
+
+    const container =
+        document.getElementById(
+            "dealResultsContainer"
+        );
+
+    container.innerHTML = "";
+
+    
+  
+        data.forEach(row => {
+
+            let html = "";
+
+row.grouped_hand.forEach(group => {
+
+    html +=
+        "[" +
+        group.join(" ") +
+        "] ";
+
+});
+
+            container.innerHTML +=
+`
+<div class="result-row">
+
+    <div class="result-name">
+        ${row.display_name}
+    </div>
+
+    <div class="result-cards">
+        ${html}
+    </div>
+
+    <div class="result-score">
+        ${row.deal_score}
+    </div>
+
+    <div class="result-total">
+        ${row.total_score}
+    </div>
+
+</div>
+`;
+        });
+    
+
+    document.getElementById(
+        "dealResultModal"
+    ).style.display = "block";
+}
+
+function clearCurrentDealUI()
+{
+    state.groups = [];
+
+    renderHand();
+
+    document.getElementById(
+        "openVisual"
+    ).innerText = "-";
+
+    document.getElementById(
+        "stockCard"
+    ).innerText = "";
+
+    document.getElementById(
+        "turnSeat"
+    ).innerText = "-";
+}
+
 window.onload = () => {
 
   const savedTable = localStorage.getItem("crdg_table");
@@ -1171,6 +1369,9 @@ window.onload = () => {
   document.getElementById("lobbyScreen").classList.add("hidden");
   document.getElementById("app").classList.add("hidden");
 };
+
+
+
 
 async function postJoinFlow() {
 

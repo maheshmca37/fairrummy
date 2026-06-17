@@ -461,3 +461,117 @@ body {
     margin-top:10px;
 
 }
+
+.result-modal {
+
+    display:none;
+
+    position:fixed;
+
+    left:0;
+    top:0;
+
+    width:100%;
+    height:100%;
+
+    background:rgba(104, 60, 143, 0.75);
+
+    z-index:9999;
+}
+
+.result-box {
+
+    width:90%;
+    max-width:900px;
+
+    margin:30px auto;
+
+    background:rgb(154, 176, 97);
+
+    border-radius:10px;
+
+    padding:15px;
+
+    max-height:85vh;
+
+    overflow:auto;
+}
+
+.result-header {
+
+    font-size:22px;
+    font-weight:bold;
+
+    margin-bottom:15px;
+}
+
+.result-player {
+
+    border:1px solid #4ba16e;
+
+    padding:10px;
+
+    margin-bottom:10px;
+}
+
+.result-groups {
+
+    margin-top:5px;
+    margin-bottom:5px;
+}
+
+.result-row{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    border-bottom:1px solid #514f4f;
+
+    padding:8px;
+}
+
+.result-name{
+
+    width:120px;
+
+    font-weight:bold;
+}
+
+.result-cards{
+
+    flex:1;
+
+    word-break:break-word;
+}
+
+.result-score{
+
+    width:60px;
+
+    text-align:center;
+
+    font-weight:bold;
+}
+
+.result-total{
+
+    width:60px;
+
+    text-align:center;
+
+    font-weight:bold;
+}
+
+.result-joker{
+
+    font-size:20px;
+
+    font-weight:bold;
+
+    margin-bottom:10px;
+
+    display:block;
+}
