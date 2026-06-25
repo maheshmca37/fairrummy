@@ -27,6 +27,7 @@ let state = {
     [],
     [],
     [],
+    [],
     []
    ],
   selectedCard: null,
@@ -36,6 +37,7 @@ let state = {
   lastTurnSeat: null,
   dragCard: null,
   currentTurnSeat: null,
+  dealerSeat: null,
   declarationMode : false,
   declarationTimerStarted: false,
   declarationTimerInterval : null,
@@ -79,7 +81,7 @@ document.getElementById( "stockCard").onclick = () => {
 // =========================
 function renderHand() {
 
-    for(let g = 0; g < 4; g++) {
+    for(let g = 0; g < 5; g++) {
 
         const groupEl =
             document.getElementById("group" + g);
@@ -93,64 +95,132 @@ function renderHand() {
             state.groups[g] = [];
         }
 
+        // DROP ON EMPTY GROUP / GROUP AREA
+
         groupEl.ondragover = (e) => {
-           e.preventDefault();
+            e.preventDefault();
         };
 
         groupEl.ondrop = (e) => {
 
-    e.preventDefault();
+            e.preventDefault();
 
-    if(!state.dragCard){
-        return;
-    }
+            if(!state.dragCard){
+                return;
+            }
 
-    const sourceGroup =
-        state.dragCard.group;
+            const sourceGroup =
+                state.dragCard.group;
 
-    const sourceIndex =
-        state.dragCard.index;
+            const sourceIndex =
+                state.dragCard.index;
 
-    const cardToMove =
-        state.dragCard.card;
+            const cardToMove =
+                state.dragCard.card;
 
-    if(sourceGroup === g){
-        return;
-    }
+            if(sourceGroup === g){
+                return;
+            }
 
-    state.groups[sourceGroup]
-        .splice(sourceIndex, 1);
+            state.groups[sourceGroup]
+                .splice(sourceIndex, 1);
 
-    state.groups[g]
-        .push(cardToMove);
+            state.groups[g]
+                .push(cardToMove);
 
-    state.dragCard = null;
+            state.dragCard = null;
 
-  renderHand();
-  calculateDealScore();
-};
-
+            renderHand();
+            calculateDealScore();
+        };
 
         state.groups[g].forEach((card, index) => {
 
             const div =
                 document.createElement("div");
 
-            div.className =  "card card-enter";
+            div.className =
+                "card card-enter";
 
             div.draggable = true;
 
+            // DRAG START
+
             div.ondragstart = () => {
 
-                  state.dragCard = {
-                      card: card,
-                      group: g,
-                      index: index
-                  };
+                state.dragCard = {
+                    card: card,
+                    group: g,
+                    index: index
+                };
 
-              };
+            };
 
-                if (isJokerCard(card)) {
+            // NEW: DROP ON CARD
+
+            div.ondragover = (e) => {
+                e.preventDefault();
+            };
+
+            div.ondrop = (e) => {
+
+                e.preventDefault();
+
+                if(!state.dragCard){
+                    return;
+                }
+
+                const sourceGroup =
+                    state.dragCard.group;
+
+                const sourceIndex =
+                    state.dragCard.index;
+
+                const cardToMove =
+                    state.dragCard.card;
+
+                // same exact card
+                if(
+                    sourceGroup === g &&
+                    sourceIndex === index
+                ){
+                    return;
+                }
+
+                // remove from source
+
+                state.groups[sourceGroup]
+                    .splice(sourceIndex, 1);
+
+                let targetIndex = index;
+
+                // same group adjustment
+
+                if(
+                    sourceGroup === g &&
+                    sourceIndex < index
+                ){
+                    targetIndex--;
+                }
+
+                // insert BEFORE target card
+
+                state.groups[g]
+                    .splice(
+                        targetIndex,
+                        0,
+                        cardToMove
+                    );
+
+                state.dragCard = null;
+
+                renderHand();
+                calculateDealScore();
+            };
+
+            // DISPLAY
+
+            if (isJokerCard(card)) {
 
                 div.innerText =
                     card + " ⭐";
@@ -165,23 +235,27 @@ function renderHand() {
             }
 
             if (
-                  card.includes("♥") ||
-                  card.includes("♦")
-              ){
-                  div.classList.add("red-card");
-              }
+                card.includes("♥") ||
+                card.includes("♦")
+            ){
+                div.classList.add(
+                    "red-card"
+                );
+            }
 
-            // Highlight selected card
+            // SELECTED CARD
 
             if(
                 state.selectedCard &&
                 state.selectedCard.card === card &&
                 state.selectedCard.group === g
             ){
-                div.classList.add("selected");
+                div.classList.add(
+                    "selected"
+                );
             }
 
-            // Select card
+            // CLICK
 
             div.onclick = () => {
 
@@ -199,8 +273,13 @@ function renderHand() {
 
             setTimeout(() => {
 
-                div.classList.remove("card-enter");
-                div.classList.add("card-show");
+                div.classList.remove(
+                    "card-enter"
+                );
+
+                div.classList.add(
+                    "card-show"
+                );
 
             }, 30 * index);
 
@@ -251,9 +330,59 @@ async function onObservationTimerExpired()
     clearCurrentDealUI();
 
 
-    alert(
-        "Observation Timer Finished"
-    );
+   await startNextDeal();
+}
+
+async function startNextDeal()
+{
+    await loadSessionInfo();
+
+    if(state.seatNo === 1)
+    {
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_prepare_next_deal",
+                {
+                    p_session_id: state.sessionId
+                }
+            );
+
+        if(error)
+        {
+            console.error(error);
+            return;
+        }
+    }
+
+    state.resultWindowOpened = false;
+    
+    document.getElementById(
+    "dealResultsContainer"
+).innerHTML = "";
+
+document.getElementById(
+    "resultJokerCard"
+).innerHTML = "";
+
+    state.declarationTimerStarted = false;
+
+    clearInterval(state.observationTimerInterval);
+
+    document.getElementById(
+        "dealResultModal"
+    ).style.display = "none";
+
+    // TEMPORARY TEST
+    setTimeout(async () => {
+
+        await loadGame();
+        await loadSessionInfo();
+        await loadPlayers();
+
+        renderHand();
+        calculateDealScore();
+
+    }, 1000);
 }
 
 // =========================
@@ -279,13 +408,26 @@ async function draw(source) {
     return;
   }
 
+        if(
+            data &&
+            data.length > 0 &&
+            data[0].status === "cannot_pick_joker"
+        )
+        {
+            alert(
+                "Cannot pick discarded Joker / Wild Joker"
+            );
+
+            return;
+        }
+
   const card = data?.[0]?.card;
 
   if (card) {
 
-    state.groups[3].push(card);
+    state.groups[4].push(card);
 
-    await loadSessionInfo();
+    //await loadSessionInfo();
     renderHand();
     calculateDealScore();
 
@@ -293,6 +435,33 @@ async function draw(source) {
 }
 }
 
+
+async function dropCurrentDeal()
+{
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_drop_player",
+            {
+                p_session_id: state.sessionId,
+                p_user_id: state.userId
+            }
+        );
+
+    if(error)
+    {
+        console.error(error);
+        return;
+    }
+
+    alert(
+        data[0].drop_type +
+        " : " +
+        data[0].drop_score
+    );
+
+    await loadPlayers();
+    await loadSessionInfo();
+}
 // =========================
 // DISCARD
 // =========================
@@ -360,9 +529,15 @@ async function discard() {
         renderHand();
         calculateDealScore();
 
-        await loadSessionInfo();
+       // await loadSessionInfo();
     }
+
+
+
 }
+
+
+let sessionRefreshPending = false;
 
 // =========================
 // REALTIME
@@ -376,21 +551,30 @@ function subscribeRealtime() {
       state.sessionId
     )
     .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "crdg_game_sessions"
-      },
-      async () => {
+  "postgres_changes",
+  {
+    event: "*",
+    schema: "public",
+    table: "crdg_game_sessions"
+  },
+  (payload) => {
 
-        
+   if(sessionRefreshPending)
+        return;
+     
+     sessionRefreshPending = true;
+
+      setTimeout(async () => {
+
         await loadSessionInfo();
 
         updateActionButtons();
 
-      }
-    )
+        sessionRefreshPending = false;
+
+    }, 100);
+  }
+)
     .subscribe((status) => {
 
     
@@ -415,8 +599,6 @@ async function loadSessionInfo() {
   state.dealerSeat = data.dealer_seat;
   state.currentTurnSeat = data.current_turn_seat;
 
-  
-
   state.turnStartedAt =    new Date(
         data.turn_started_at
     ).getTime();
@@ -424,21 +606,23 @@ async function loadSessionInfo() {
   document.getElementById("turnSeat").innerText =
     data.current_turn_seat || "-";
 
-  document.getElementById("openVisual").innerText =
-    data.open_pile?.slice(-1)[0] || "-";
+    const topOpenCard =
+        data.open_pile?.slice(-1)[0];
+
+    document.getElementById("openVisual").innerText =
+        topOpenCard || "-";
 
     const openEl =
-    document.getElementById("openVisual");
+        document.getElementById("openVisual");
 
-      openEl.classList.remove("red-card");
+    openEl.classList.remove("red-card");
 
-      if(
-          data.open_pile?.[0]?.includes("♥") ||
-          data.open_pile?.[0]?.includes("♦")
-      ){
-          openEl.classList.add("red-card");
-      }
-
+    if(
+        topOpenCard?.includes("♥") ||
+        topOpenCard?.includes("♦")
+    ){
+        openEl.classList.add("red-card");
+    }
 document.getElementById("jokerVisual").innerText =
     data.joker_card || "-";
 
@@ -573,11 +757,6 @@ async function onDeclarationTimerExpired(){
 
         return;
     }
-
-    alert(
-        "Deal Score : " + data
-    );
-
 }
 
 
@@ -585,7 +764,7 @@ function getTotalCards(){
 
     let total = 0;
 
-    for(let g = 0; g < 4; g++){
+    for(let g = 0; g < 5; g++){
 
         if(state.groups[g]){
 
@@ -716,12 +895,48 @@ async function loadGame() {
   state.hand = data.hand || [];
 
 
-  state.groups = [
-    state.hand.slice(0,4),
-    state.hand.slice(4,8),
-    state.hand.slice(8,12),
-    state.hand.slice(12)
-  ];
+  const spades = [];
+const hearts = [];
+const diamonds = [];
+const clubs = [];
+const jokers = [];
+
+
+state.hand.forEach(card => {
+
+    if(card === "JOKER"){
+        jokers.push(card);
+    }
+    else if(card.includes("♠")){
+        spades.push(card);
+    }
+    else if(card.includes("♥")){
+        hearts.push(card);
+    }
+    else if(card.includes("♦")){
+        diamonds.push(card);
+    }
+    else if(card.includes("♣")){
+        clubs.push(card);
+    }
+
+});
+
+
+spades.sort((a,b)=>getRank(a)-getRank(b));
+hearts.sort((a,b)=>getRank(a)-getRank(b));
+diamonds.sort((a,b)=>getRank(a)-getRank(b));
+clubs.sort((a,b)=>getRank(a)-getRank(b));
+
+state.groups = [
+    spades,
+    hearts,
+    diamonds,
+    clubs,
+    jokers
+];
+
+
 
   document.getElementById("turnSeat").innerText =
     data.session.current_turn_seat || "-";
@@ -735,6 +950,23 @@ document.getElementById("jokerVisual").innerText =
 document.getElementById("stockCard").innerText =
     data.stock_pile?.length || 0;
   
+}
+
+
+
+function getRank(card){
+
+    const rank =
+        card.replace(/[♠♥♦♣]/g,'');
+
+    switch(rank){
+        case 'A': return 1;
+        case 'J': return 11;
+        case 'Q': return 12;
+        case 'K': return 13;
+        default: return parseInt(rank);
+    }
+
 }
 
 // =========================
@@ -840,6 +1072,8 @@ async function loadPlayers() {
 
     // Skip myself
     if (player.seat_no === state.seatNo) {
+
+        state.myScore = player.points || 0;
       return;
     }
 
@@ -851,6 +1085,8 @@ async function loadPlayers() {
     }
 
     let target = null;
+
+    
 
     switch (relative) {
 
@@ -890,7 +1126,7 @@ if(player.seat_no === state.currentTurnSeat){
     document.getElementById(target).innerHTML = `
       <div><b>${player.display_name}${icons}</b></div>
       <div style="font-size:24px;">🂠🂠🂠🂠🂠</div>
-      <div>Score : 0</div>
+      <div>Score : ${player.points || 0}</div>
     `;
   });
 
@@ -908,8 +1144,10 @@ if(state.seatNo === state.currentTurnSeat){
 document.getElementById("myInfo").innerHTML =
     `You ${myIcons}`;
 
-document.getElementById("myScore").innerHTML =
+
+    document.getElementById("myScore").innerHTML =
     `Score : ${state.myScore || 0}`;
+
 }
 
 
@@ -1191,7 +1429,6 @@ async function declareGame() {
                 return;
             }
 
-            console.log(data);
 
       }
       else{
@@ -1210,7 +1447,6 @@ async function declareGame() {
 
 async function calculateDealScore() {
 
-
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_calculate_running_score",
@@ -1227,10 +1463,8 @@ async function calculateDealScore() {
         return;
     }
 
-    document.getElementById(
-        "dealScore"
-    ).innerText =
-        "Deal Score : " + data;
+    document.getElementById("dealScore").innerText =
+        "Deal Score : " + (data || 0);
 }
 
 function getCardValue(card) {
@@ -1293,15 +1527,35 @@ async function loadDealResults()
   
         data.forEach(row => {
 
-            let html = "";
+        let html = "";
 
 row.grouped_hand.forEach(group => {
 
-    html +=
-        "[" +
-        group.join(" ") +
-        "] ";
+    html += `<div class="result-group-inline">`;
 
+    group.forEach(card => {
+
+        let cardClass = "result-card";
+
+        if(
+            card.includes("♥") ||
+            card.includes("♦")
+        ){
+            cardClass += " red-card";
+        }
+
+        if(isJokerCard(card)){
+            cardClass += " joker-highlight";
+        }
+
+        html += `
+            <div class="${cardClass}">
+                ${card}
+            </div>
+        `;
+    });
+
+    html += `</div>`;
 });
 
             container.innerHTML +=
