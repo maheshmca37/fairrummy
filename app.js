@@ -302,12 +302,12 @@ async function startObservationTimer()
     }
 
     console.log(
-        "OBS TIMER START",
+        "OBS TICK",
         state.userId,
-        new Date().toLocaleTimeString()
+        observationTimeRemaining
     );
 
-    observationTimeRemaining = 30;
+    observationTimeRemaining = --;
 
     document.getElementById(
         "observationTimer"
@@ -360,6 +360,11 @@ async function startNextDeal()
 
     state.resultWindowOpened = false;
     state.resultWindowLoaded = false;
+
+    console.log(
+    "START NEXT DEAL",
+    state.userId
+);
     
     await loadSessionInfo();
 
