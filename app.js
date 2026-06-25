@@ -291,13 +291,30 @@ function renderHand() {
 
 async function startObservationTimer()
 {
-    clearInterval(
-        observationTimerInterval
+    // Stop any previous timer
+    clearInterval(observationTimerInterval);
+
+    if(state.observationTimerInterval)
+    {
+        clearInterval(
+            state.observationTimerInterval
+        );
+    }
+
+    console.log(
+        "OBS TIMER START",
+        state.userId,
+        new Date().toLocaleTimeString()
     );
 
     observationTimeRemaining = 30;
 
-    observationTimerInterval =
+    document.getElementById(
+        "observationTimer"
+    ).innerText =
+        observationTimeRemaining;
+
+    state.observationTimerInterval =
         setInterval(async () =>
     {
         observationTimeRemaining--;
@@ -312,7 +329,13 @@ async function startObservationTimer()
         )
         {
             clearInterval(
-                observationTimerInterval
+                state.observationTimerInterval
+            );
+
+            console.log(
+                "OBS TIMER EXPIRED",
+                state.userId,
+                new Date().toLocaleTimeString()
             );
 
             await onObservationTimerExpired();
@@ -320,7 +343,6 @@ async function startObservationTimer()
 
     }, 1000);
 }
-
 async function onObservationTimerExpired()
 {
     document.getElementById(
