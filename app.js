@@ -357,6 +357,10 @@ async function onObservationTimerExpired()
 
 async function startNextDeal()
 {
+
+    state.resultWindowOpened = false;
+    state.resultWindowLoaded = false;
+    
     await loadSessionInfo();
 
     if(state.seatNo === 1)
@@ -376,8 +380,7 @@ async function startNextDeal()
         }
     }
 
-    state.resultWindowOpened = false;
-    
+
     document.getElementById(
     "dealResultsContainer"
 ).innerHTML = "";
@@ -665,7 +668,7 @@ document.getElementById("jokerVisual").innerText =
     data.declaration_started || false;
 
 
-          if(
+     if(
           state.declarationMode &&
           !state.declarationTimerStarted
       ){
@@ -674,17 +677,16 @@ document.getElementById("jokerVisual").innerText =
               state.turnTimerInterval
           );
 
-          state.declarationTimerStarted =
-              true;
+          state.declarationTimerStarted =  true;
 
           startDeclarationTimer();
 
       }
 
 
-document.getElementById("stockCard").innerText =
-    data.stock_pile?.length || 0;
-    
+    document.getElementById("stockCard").innerText =
+        data.stock_pile?.length || 0;
+        
     if(  state.lastTurnSeat !==  data.current_turn_seat)
     {
        state.lastTurnSeat =   data.current_turn_seat;
@@ -1515,6 +1517,12 @@ function getCardValue(card) {
 
 async function loadDealResults()
 {
+    if(state.resultWindowLoaded)
+    {
+        return;
+    }
+
+    state.resultWindowLoaded = true;
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_get_deal_results",
