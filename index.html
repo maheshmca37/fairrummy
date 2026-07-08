@@ -22,6 +22,7 @@
         id="tableIdInput"
         type="number"
         placeholder="Table ID"
+        value="777777"
     >
 
     <input
@@ -106,8 +107,8 @@
         </div>
 
         <div>
-            Turn :
-            <span id="turnSeat">-</span>
+           Current Turn :
+          <span id="currentTurnPlayer">-</span>
         </div>
         
         
@@ -197,10 +198,21 @@
     <div id="myScore"> Score : 0   </div>
     <div id="dealScore"> Deal Score : 0 </div>
     <button id="dropBtn" onclick="dropCurrentDeal()">   DROP </button>
-
+      <div
+        id="dropStatus"
+        style="
+            display:none;
+            text-align:center;
+            font-size:12px;
+            font-weight:bold;
+            color:red;
+            margin-bottom:10px;
+        ">
+    </div>
     </div>
 
 <section id="my-hand" class="hand">
+      
 
     <div class="group-box" id="group0"></div>
     <div class="group-box" id="group1"></div>
@@ -317,6 +329,44 @@
 <!-- ================================================= -->
 <!-- APP -->
 <!-- ================================================= -->
+
+
+
+<div id="tableCompletedScreen">
+
+    <div class="winner-card">
+
+        <div class="trophy">
+            🏆
+        </div>
+
+        <h1>
+            TABLE COMPLETED
+        </h1>
+
+        <table id="finalScoreTable">
+
+    <thead>
+        <tr>
+            <th>Player</th>
+            <th>Score</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+
+    <tbody id="finalScoreBody">
+
+    </tbody>
+
+</table>
+
+        <p>
+            Thank you for playing
+        </p>
+
+    </div>
+
+</div>
 
 <script src="app.js"></script>
 

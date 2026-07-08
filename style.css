@@ -486,7 +486,7 @@ body {
 
     margin:30px auto;
 
-    background:rgb(154, 176, 97);
+    background:rgba(11, 14, 2, 0.852);
 
     border-radius:10px;
 
@@ -590,4 +590,150 @@ body {
     padding:2px;
     border-radius:4px;
     white-space:nowrap;
+}
+
+.result-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:10px;
+    color:white;
+}
+
+.result-table th{
+    padding:8px;
+    background:#2d6a4f;
+    text-align:center;
+}
+
+.result-table td{
+    padding:8px;
+    border-bottom:1px solid rgba(255,255,255,.25);
+    vertical-align:middle;
+}
+
+.result-table td:first-child{
+    width:120px;
+    font-weight:bold;
+}
+
+.result-table td:nth-child(3),
+.result-table td:nth-child(4){
+    width:80px;
+    text-align:center;
+}
+
+#tableCompletedScreen
+{
+    display:none;
+
+    position:fixed;
+    top:0;
+    left:0;
+
+    width:100%;
+    height:100%;
+
+    background:
+    rgba(0,0,0,0.85);
+
+    z-index:9999;
+
+    justify-content:center;
+    align-items:center;
+}
+
+
+.winner-card
+{
+    background:white;
+
+    padding:40px;
+
+    border-radius:20px;
+
+    text-align:center;
+
+    min-width:300px;
+
+    box-shadow:
+    0 0 30px rgba(0,0,0,0.5);
+}
+
+
+.trophy
+{
+    font-size:60px;
+}
+
+
+.winner-card h1
+{
+    color:#28a745;
+}
+
+
+.winner-card h2
+{
+    color:#333;
+}
+
+#finalScoreTable
+{
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+}
+
+
+#finalScoreTable th,
+#finalScoreTable td
+{
+    border:1px solid #ccc;
+    padding:10px;
+}
+
+
+#finalScoreTable th
+{
+    background:#333;
+    color:white;
+}
+
+
+.winner-row
+{
+    background:#d4edda;
+    font-weight:bold;
+}
+#finalScoreTable td
+{
+    color:#222;
+}
+
+
+#finalScoreTable .winner-row td
+{
+    color:#155724;
+    font-weight:bold;
+}
+
+#finalScoreTable th
+{
+    background:#333;
+    color:white;
+}
+
+
+#finalScoreTable td
+{
+    background:white;
+    color:#222;
+}
+
+
+#finalScoreTable .winner-row td
+{
+    background:#d4edda;
+    color:#155724;
+    font-weight:bold;
 }

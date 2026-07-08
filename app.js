@@ -37,11 +37,22 @@ let state = {
   lastTurnSeat: null,
   dragCard: null,
   currentTurnSeat: null,
+  ignoreResultWindow : false,
   dealerSeat: null,
   declarationMode : false,
   declarationTimerStarted: false,
+  observationTimerInterval : null,
+  lastEventTime: null,
   declarationTimerInterval : null,
   resultWindowOpened : false,
+  isDropped : false,
+  isEliminated : false,
+  isInvalidDeclaration : false,
+  eliminationScreenShown : false,
+  eliminatedRefreshStarted : false,
+  playerStatus : false,
+  tableCompleted : false,
+  dropType : null,
   myScore: null
 };
 
@@ -64,7 +75,6 @@ let gameEntered = false;
 
 let turnTimerHandle = null;
 
-let observationTimerInterval = null;
 let observationTimeRemaining = 30;
 
 
@@ -80,6 +90,39 @@ document.getElementById( "stockCard").onclick = () => {
 // RENDER HAND
 // =========================
 function renderHand() {
+
+
+        const dropStatus =
+            document.getElementById("dropStatus");
+
+        if(state.isDropped)
+        {
+            dropStatus.style.display = "block";
+
+            if(state.dropType === "INVALID_DECLARE")
+            {
+                dropStatus.innerHTML =
+                    "🚫 INVALID DECLARE";
+            }
+            else if(state.dropType === "MID_DROP")
+            {
+                dropStatus.innerHTML =
+                    "⛔ YOU MID DROPPED";
+            }
+            else
+            {
+                dropStatus.innerHTML =
+                    "❌ YOU DROPPED";
+            }
+            return;
+        }
+        else
+        {
+            dropStatus.style.display = "none";
+        }
+
+    document.getElementById("dropBtn").disabled    = state.isDropped;
+
 
     for(let g = 0; g < 5; g++) {
 
@@ -259,6 +302,9 @@ function renderHand() {
 
             div.onclick = () => {
 
+                   if(state.isDropped)
+                    {     return;   }
+
                 state.selectedCard = {
                     card: card,
                     group: g,
@@ -286,28 +332,15 @@ function renderHand() {
         });
 
     }
+
 }
 
 
 async function startObservationTimer()
 {
-    // Stop any previous timer
-    clearInterval(observationTimerInterval);
 
-    if(state.observationTimerInterval)
-    {
-        clearInterval(
-            state.observationTimerInterval
-        );
-    }
 
-    console.log(
-        "OBS TICK",
-        state.userId,
-        observationTimeRemaining
-    );
-
-    observationTimeRemaining = --;
+    observationTimeRemaining = 30;
 
     document.getElementById(
         "observationTimer"
@@ -317,25 +350,20 @@ async function startObservationTimer()
     state.observationTimerInterval =
         setInterval(async () =>
     {
+        
+
         observationTimeRemaining--;
+       
 
         document.getElementById(
             "observationTimer"
         ).innerText =
             observationTimeRemaining;
 
-        if(
-            observationTimeRemaining <= 0
-        )
+        if(observationTimeRemaining <= 0)
         {
             clearInterval(
                 state.observationTimerInterval
-            );
-
-            console.log(
-                "OBS TIMER EXPIRED",
-                state.userId,
-                new Date().toLocaleTimeString()
             );
 
             await onObservationTimerExpired();
@@ -358,17 +386,45 @@ async function onObservationTimerExpired()
 async function startNextDeal()
 {
 
+if(state.tableCompleted)
+{
+    return;
+}
+
+if (state.playerStatus === "ELIMINATED")
+{
+    state.ignoreResultWindow = true;
     state.resultWindowOpened = false;
     state.resultWindowLoaded = false;
 
-    console.log(
-    "START NEXT DEAL",
-    state.userId
-);
-    
-    await loadSessionInfo();
+    clearInterval(state.observationTimerInterval);
 
-    if(state.seatNo === 1)
+    document.getElementById("dealResultModal").style.display = "none";
+
+    setTimeout(async () => {
+
+        await loadGame();
+        await loadSessionInfo();
+        await loadPlayers();
+
+        state.ignoreResultWindow = false;
+
+    }, 2500);
+
+    return;
+}
+
+    state.ignoreResultWindow = true;
+    state.resultWindowOpened = false;
+    state.resultWindowLoaded = false;
+
+    state.isDropped = false;
+    state.dropType = "";
+
+    
+   // await loadSessionInfo();
+
+    if(state.seatNo === state.dealerSeat)
     {
         const { data, error } =
             await supabaseClient.rpc(
@@ -411,8 +467,9 @@ document.getElementById(
 
         renderHand();
         calculateDealScore();
+        state.ignoreResultWindow = false;
 
-    }, 1000);
+    }, 2500);
 }
 
 // =========================
@@ -468,6 +525,13 @@ async function draw(source) {
 
 async function dropCurrentDeal()
 {
+    
+    const msg = "Are you sure you want to DROP?";
+    if (!confirm(msg))
+    {
+        return;
+    }
+
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_drop_player",
@@ -483,14 +547,13 @@ async function dropCurrentDeal()
         return;
     }
 
-    alert(
-        data[0].drop_type +
-        " : " +
-        data[0].drop_score
-    );
-
-    await loadPlayers();
     await loadSessionInfo();
+    await loadPlayers();
+
+    state.isDropped = true;
+    state.dropType = data[0].drop_type;
+
+    renderHand();
 }
 // =========================
 // DISCARD
@@ -602,7 +665,7 @@ function subscribeRealtime() {
 
         sessionRefreshPending = false;
 
-    }, 100);
+    }, 500);
   }
 )
     .subscribe((status) => {
@@ -612,7 +675,208 @@ function subscribeRealtime() {
 });
 }
 
+async function handleTableCompleted(data)
+{
+    // Prevent duplicate execution
+    if(state.tableCompleted)
+    {
+        return;
+    }
+
+    console.log("TABLE COMPLETED", data);
+
+    state.tableCompleted = true;
+
+    // Stop timers
+    clearInterval(
+        state.turnTimerInterval
+    );
+
+    clearInterval(
+        state.observationTimerInterval
+    );
+
+
+    // Stop DB polling / realtime processing
+   // stopGamePolling();
+
+
+    // Disable buttons
+    const btnDiscard =
+        document.getElementById("btnDiscard");
+
+    const btnDeclare =
+        document.getElementById("btnDeclare");
+
+
+    if(btnDiscard)
+    {
+        btnDiscard.disabled = true;
+    }
+
+
+    if(btnDeclare)
+    {
+        btnDeclare.disabled = true;
+    }
+
+
+    // Disable card selection / stock actions
+
+    const openVisual =
+        document.getElementById("openVisual");
+
+    const stockCard =
+        document.getElementById("stockCard");
+
+
+    if(openVisual)
+    {
+        openVisual.style.pointerEvents = "none";
+    }
+
+
+    if(stockCard)
+    {
+        stockCard.style.pointerEvents = "none";
+    }
+
+
+    // Stop any active declaration/drop UI
+
+    const dealResultModal =
+        document.getElementById(
+            "dealResultModal"
+        );
+
+    if(dealResultModal)
+    {
+        dealResultModal.style.display = "none";
+    }
+
+    showTableCompletedScreen(data);
+
+
+    // Future:
+    // load final table result here
+}
+
+
+async function showTableCompletedScreen(data)
+{
+    console.log(
+        "Loading final result..."
+    );
+
+
+    const {
+        data: resultData,
+        error
+    } =
+    await supabaseClient.rpc(
+        "crdg_get_table_final_result",
+        {
+            p_session_id: state.sessionId
+        }
+    );
+
+
+    if(error)
+    {
+        console.error(
+            "Final result error:",
+            error
+        );
+
+        return;
+    }
+
+
+    console.log(
+        "FINAL PLAYERS",
+        resultData
+    );
+
+
+    const tbody =
+        document.getElementById(
+            "finalScoreBody"
+        );
+
+
+    tbody.innerHTML = "";
+
+
+    resultData.forEach(
+        player =>
+        {
+
+            const tr =
+                document.createElement(
+                    "tr"
+                );
+
+
+            if(player.is_winner)
+            {
+                tr.classList.add(
+                    "winner-row"
+                );
+            }
+
+
+            tr.innerHTML =
+
+            `
+            <td>
+                ${
+                    player.is_winner
+                    ? "🏆 "
+                    : ""
+                }
+                ${player.display_name}
+            </td>
+
+            <td>
+                ${player.final_score}
+            </td>
+
+            <td>
+                ${
+                    player.is_winner
+                    ? "WINNER"
+                    : "PLAYER"
+                }
+            </td>
+            `;
+
+
+            tbody.appendChild(tr);
+
+        }
+    );
+
+
+    const screen =
+        document.getElementById(
+            "tableCompletedScreen"
+        );
+
+
+    if(screen)
+    {
+        screen.style.display = "flex";
+    }
+
+}
+
 async function loadSessionInfo() {
+
+if(state.tableCompleted)
+{
+    return;
+}
+
 
   const { data, error } =
     await supabaseClient
@@ -626,16 +890,21 @@ async function loadSessionInfo() {
     return;
   }
 
+        if (data.game_completed)
+        {
+            handleTableCompleted(data);
+            return;
+        }
   state.dealerSeat = data.dealer_seat;
   state.currentTurnSeat = data.current_turn_seat;
+
+  await loadPlayers();
 
   state.turnStartedAt =    new Date(
         data.turn_started_at
     ).getTime();
 
-  document.getElementById("turnSeat").innerText =
-    data.current_turn_seat || "-";
-
+ 
     const topOpenCard =
         data.open_pile?.slice(-1)[0];
 
@@ -669,6 +938,7 @@ document.getElementById("jokerVisual").innerText =
       }
 
     state.jokerCard = data.joker_card;
+
     state.declarationMode =
     data.declaration_started || false;
 
@@ -692,16 +962,20 @@ document.getElementById("jokerVisual").innerText =
     document.getElementById("stockCard").innerText =
         data.stock_pile?.length || 0;
         
-    if(  state.lastTurnSeat !==  data.current_turn_seat)
-    {
-       state.lastTurnSeat =   data.current_turn_seat;
-        startTurnTimer();
-    }
+        if (
+            state.playerStatus !== "ELIMINATED" &&
+            state.lastTurnSeat !== data.current_turn_seat
+        )
+        {
+            state.lastTurnSeat = data.current_turn_seat;
+            startTurnTimer();
+        }
 
 
         if (
             data.deal_results_ready === true &&
-            !state.resultWindowOpened
+            !state.resultWindowOpened &&
+            !state.ignoreResultWindow
         )
         {
             state.resultWindowOpened = true;
@@ -744,12 +1018,6 @@ function startDeclarationTimer(){
             clearInterval(
                 state.declarationTimerInterval
             );
-
-            document.getElementById(
-                "declarationTimer"
-            ).innerText =
-                "Submitting...";
-
             onDeclarationTimerExpired();
 
         }
@@ -806,6 +1074,21 @@ function getTotalCards(){
 }
 
 function updateActionButtons(){
+
+
+    if (state.playerStatus === "ELIMINATED") {
+
+    document.getElementById("btnDiscard").disabled = true;
+    document.getElementById("btnDeclare").disabled = true;
+
+    document.getElementById("openVisual").style.opacity = "0.4";
+    document.getElementById("stockCard").style.opacity = "0.4";
+
+    document.getElementById("openVisual").style.pointerEvents = "none";
+    document.getElementById("stockCard").style.pointerEvents = "none";
+
+    return;
+   }
 
     const myTurn =
         state.seatNo ===
@@ -909,6 +1192,11 @@ function isJokerCard(card) {
 
 async function loadGame() {
 
+    if(state.tableCompleted)
+{
+    return;
+}
+
   const { data, error } = await supabaseClient.rpc(
     "crdg_get_game_state",
     {
@@ -922,9 +1210,32 @@ async function loadGame() {
   if (!data) return;
 
   state.hand = data.hand || [];
+  
+  state.playerStatus = data.player_status;
+
+  if (state.playerStatus === "ELIMINATED" && !state.eliminatedRefreshStarted)
+{
+    state.eliminatedRefreshStarted = true;
+
+    setInterval(async () => {
+
+        await loadSessionInfo();
+        await loadPlayers();
+
+    }, 1000);
+}
+
+    if (
+        state.playerStatus === "ELIMINATED" &&
+        !state.eliminationScreenShown
+    )
+    {
+        state.eliminationScreenShown = true;
+        handleEliminatedPlayer();
+    }
 
 
-  const spades = [];
+const spades = [];
 const hearts = [];
 const diamonds = [];
 const clubs = [];
@@ -966,10 +1277,6 @@ state.groups = [
 ];
 
 
-
-  document.getElementById("turnSeat").innerText =
-    data.session.current_turn_seat || "-";
-
  document.getElementById("openVisual").innerText =
     data.open_pile?.slice(-1)[0] || "-";
 
@@ -981,6 +1288,18 @@ document.getElementById("stockCard").innerText =
   
 }
 
+
+
+function handleEliminatedPlayer()
+{
+    state.myTurn = false;
+
+    clearInterval(state.turnTimerInterval);
+
+    document.getElementById("dropBtn").disabled = true;
+    document.getElementById("btnDeclare").disabled = true;
+    document.getElementById("btnDiscard").disabled = true;
+}
 
 
 function getRank(card){
@@ -1048,6 +1367,15 @@ async function joinTable() {
 
 function startTurnTimer() {
 
+    if (state.playerStatus === "ELIMINATED") {
+
+    clearInterval(state.turnTimerInterval);
+
+    document.getElementById("turnTimer").innerText = "-";
+
+    return;
+   }
+
     clearInterval(state.turnTimerInterval);
 
     state.turnTimerInterval =
@@ -1069,117 +1397,211 @@ function startTurnTimer() {
 }
 
 async function loadPlayers() {
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_get_lobby_players",
+            {
+                p_table_id: state.tableId
+            }
+        );
 
-  const { data, error } =
-    await supabaseClient.rpc(
-      "crdg_get_lobby_players",
-      {
-        p_table_id: state.tableId
-      }
-    );
+    if (error) {
+        console.error(error);
+        return;
+    }
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+    if (!data) return;
 
-  if (!data) return;
+    for (let i = 1; i <= 5; i++) {
 
-  
-  // Clear opponent boxes
-  for (let i = 1; i <= 5; i++) {
+        document.getElementById(
+            "opp" + i
+        ).innerHTML = `
+            <div>Empty</div>
+        `;
+    }
+
+    state.myScore = 0;
+
+    data.forEach(player => {
+
+        if (
+            Number(player.seat_no) ===
+            Number(state.seatNo)
+        ) {
+            state.myScore = player.points || 0;
+            return;
+        }
+
+        let relative =
+            Number(player.seat_no) -
+            Number(state.seatNo);
+
+        if (relative < 0) {
+            relative += 6;
+        }
+
+        let target = null;
+
+        switch (relative) {
+
+            case 1:
+                target = "opp4";
+                break;
+
+            case 2:
+                target = "opp2";
+                break;
+
+            case 3:
+                target = "opp1";
+                break;
+
+            case 4:
+                target = "opp3";
+                break;
+
+            case 5:
+                target = "opp5";
+                break;
+        }
+
+        if (!target) return;
+
+        let icons = "";
+
+        if (
+            Number(player.seat_no) ===
+            Number(state.dealerSeat)
+        ) {
+            icons += " 🎲";
+        }
+
+        let cardsDisplay = `
+        <div style="font-size:24px;">
+            🂠🂠🂠🂠🂠
+        </div>
+        `;
+
+        if(player.is_out_of_deal)
+        {
+            
+            let txt = "";
+
+            switch(player.drop_type)
+            {
+                case "DROP":
+                    txt = "❌ DROP";
+                    break;
+
+                case "MID_DROP":
+                    txt = "⛔ MID DROP";
+                    break;
+
+                case "INVALID_DECLARE":
+                    txt = "🚫 INVALID";
+                    break;
+
+                default:
+                    txt = "OUT";
+            }
+
+            cardsDisplay = `
+            <div
+                style="
+                    color:#d32f2f;
+                    font-weight:bold;
+                    font-size:18px;
+                    margin-top:8px;
+                ">
+                ${txt}
+            </div>
+            `;
+        }
+
+
+        let statusHtml = "";
+
+        if(player.player_status === "ELIMINATED")
+        {
+            statusHtml = `
+            <div style="
+                color:red;
+                font-weight:bold;
+                margin-top:4px;
+            ">
+                ELIMINATED
+            </div>
+            `;
+        }
+
+        document.getElementById(target).innerHTML = `
+        <div>
+            <b>${player.display_name}${icons}</b>
+        </div>
+
+        ${cardsDisplay}
+
+        <div>
+            Score : ${player.points || 0}
+        </div>
+        ${statusHtml}
+        `;
+    });
+
+    let myIcons = "";
+
+    if (
+        Number(state.seatNo) ===
+        Number(state.dealerSeat)
+    ) {
+        myIcons += " 🎲";
+    }
 
     document.getElementById(
-      "opp" + i
-    ).innerHTML = `
-      <div>Empty</div>
-    `;
-  }
+        "myInfo"
+    ).innerHTML =
+        `You ${myIcons}`;
 
-  // Render opponents clockwise
-  data.forEach(player => {
 
-    // Skip myself
-    if (player.seat_no === state.seatNo) {
+        let myScoreHtml =
+            `Score : ${state.myScore || 0}`;
 
-        state.myScore = player.points || 0;
-      return;
+        if(state.playerStatus === "ELIMINATED")
+        {
+            myScoreHtml +=
+                `<br><span style="color:red;font-weight:bold">
+                    ELIMINATED
+                </span>`;
+        }
+
+        document.getElementById("myScore").innerHTML =
+            myScoreHtml;
+
+            
+    const turnPlayer =
+        data.find(
+            p =>
+                Number(p.seat_no) ===
+                Number(state.currentTurnSeat)
+        );
+
+
+    if(turnPlayer)
+    {
+        document.getElementById(
+            "currentTurnPlayer"
+        ).innerText =
+            turnPlayer.display_name;
     }
-
-    let relative =
-      player.seat_no - state.seatNo;
-
-    if (relative < 0) {
-      relative += 6;
+    else
+    {
+        document.getElementById(
+            "currentTurnPlayer"
+        ).innerText =
+            "-";
     }
-
-    let target = null;
-
-    
-
-    switch (relative) {
-
-      case 1:
-        target = "opp4";   // immediate left
-        break;
-
-      case 2:
-        target = "opp2";
-        break;
-
-      case 3:
-        target = "opp1";   // top center
-        break;
-
-      case 4:
-        target = "opp3";
-        break;
-
-      case 5:
-        target = "opp5";   // immediate right
-        break;
-    }
-
-    if (!target) return;
-
-    let icons = "";
-
-if(player.seat_no === state.dealerSeat){
-  icons += " 🎲";
 }
-
-if(player.seat_no === state.currentTurnSeat){
-  icons += " 🔥";
-}
-
-    document.getElementById(target).innerHTML = `
-      <div><b>${player.display_name}${icons}</b></div>
-      <div style="font-size:24px;">🂠🂠🂠🂠🂠</div>
-      <div>Score : ${player.points || 0}</div>
-    `;
-  });
-
-
-  let myIcons = "";
-
-if(state.seatNo === state.dealerSeat){
-    myIcons += " 🎲";
-}
-
-if(state.seatNo === state.currentTurnSeat){
-    myIcons += " 🔥";
-}
-
-document.getElementById("myInfo").innerHTML =
-    `You ${myIcons}`;
-
-
-    document.getElementById("myScore").innerHTML =
-    `Score : ${state.myScore || 0}`;
-
-}
-
-
 
 
 async function loadLobbyState() {
@@ -1298,7 +1720,9 @@ async function enterGame(){
     .innerText = state.tableId;
 
     await loadGame();
+   
     await loadSessionInfo();
+
     await loadPlayers();
     renderHand();
     calculateDealScore();
@@ -1418,7 +1842,7 @@ async function declareGame() {
           );
 
 
-              const declareCard = state.selectedCard.card;
+            const declareCard = state.selectedCard.card;
 
             const { data, error } =
                 await supabaseClient.rpc(
@@ -1434,7 +1858,7 @@ async function declareGame() {
                 );
 
             if(data?.[0]?.status === "valid")
-{
+            {
             // NOW remove from actual UI
 
             state.groups[
@@ -1462,12 +1886,34 @@ async function declareGame() {
       }
       else{
 
-          alert(
-              "INVALID DECLARATION : "
-              + declarationScore
-          );
+         alert("OOPS...! INVALID DECLARATION");
 
-      }
+
+        state.isInvalidDeclaration = true;
+        state.isDropped = true;
+        state.dropType = "INVALID_DECLARE";
+        const declareCard = state.selectedCard.card;
+
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_submit_declaration",
+                {
+                    p_session_id: state.sessionId,
+                    p_table_id: state.tableId,
+                    p_user_id: state.userId,
+                    p_declare_card: declareCard,
+                    p_groups: groupsForDeclaration,
+                    p_joker_card: state.jokerCard
+                }
+            );
+
+            renderHand();
+
+        if(error){
+            console.error(error);
+            return;
+        }
+    }
 
 
 }
@@ -1528,6 +1974,13 @@ async function loadDealResults()
     }
 
     state.resultWindowLoaded = true;
+
+    observationTimeRemaining = 30;
+
+    document.getElementById(
+        "observationTimer"
+    ).innerText = 30;
+
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_get_deal_results",
@@ -1543,13 +1996,13 @@ async function loadDealResults()
     }
 
     document.getElementById(
-    "resultJokerCard"
-).innerHTML =
-`
-<span class="result-joker">
-    Joker : ${state.jokerCard}
-</span>
-`;
+        "resultJokerCard"
+    ).innerHTML =
+    `
+    <span class="result-joker">
+        Joker : ${state.jokerCard}
+    </span>
+    `;
 
     const container =
         document.getElementById(
@@ -1558,70 +2011,150 @@ async function loadDealResults()
 
     container.innerHTML = "";
 
-    
-  
-        data.forEach(row => {
+        container.innerHTML = `
+        <table class="result-table">
+        <thead>
+        <tr>
+            <th>Player</th>
+            <th>Cards</th>
+            <th>Deal</th>
+            <th>Total</th>
+            <th>Status</th>
+        </tr>
+        </thead>
+        <tbody id="resultTableBody">
+        </tbody>
+        </table>
+        `;
+
+        const tbody =
+        document.getElementById(
+            "resultTableBody"
+        );
+
+    data.forEach(row => {
 
         let html = "";
 
-row.grouped_hand.forEach(group => {
+        // Winner / declared player cards
+        if(row.grouped_hand &&
+           row.grouped_hand.length > 0)
+        {
+            row.grouped_hand.forEach(group => {
 
-    html += `<div class="result-group-inline">`;
+                html +=
+                `<div class="result-group-inline">`;
 
-    group.forEach(card => {
+                group.forEach(card => {
 
-        let cardClass = "result-card";
+                    let cardClass =
+                        "result-card";
 
-        if(
-            card.includes("♥") ||
-            card.includes("♦")
-        ){
-            cardClass += " red-card";
+                    if(
+                        card.includes("♥") ||
+                        card.includes("♦")
+                    ){
+                        cardClass +=
+                            " red-card";
+                    }
+
+                    if(isJokerCard(card))
+                    {
+                        cardClass +=
+                            " joker-highlight";
+                    }
+
+                    html += `
+                        <div class="${cardClass}">
+                            ${card}
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+            });
+        }
+        else
+        {
+            html = `<div class="result-group-inline">`;
+            if(row.original_hand)
+            {
+
+            row.original_hand.forEach(card => {
+
+                let cardClass = "result-card";
+
+                if(
+                    card.includes("♥") ||
+                    card.includes("♦")
+                ){
+                    cardClass += " red-card";
+                }
+
+                if(isJokerCard(card)){
+                    cardClass += " joker-highlight";
+                }
+
+                html += `
+                    <div class="${cardClass}">
+                        ${card}
+                    </div>
+                `;
+            });
+            }
+
+            html += `</div>`;
         }
 
-        if(isJokerCard(card)){
-            cardClass += " joker-highlight";
-        }
 
-        html += `
-            <div class="${cardClass}">
-                ${card}
-            </div>
+        tbody.innerHTML += `
+        <tr>
+
+        <td>
+            ${row.display_name}
+        </td>
+
+       <td>
+        ${
+            row.grouped_hand || row.original_hand
+            ? html
+            : (
+                row.drop_type === "DROP"
+                    ? "❌ DROP"
+                : row.drop_type === "MID_DROP"
+                    ? "⛔ MID DROP"
+                : row.drop_type === "INVALID_DECLARE"
+                    ? "🚫 INVALID DECLARE"
+                : "-"
+            )
+        }
+        </td>
+        <td style="text-align:center">
+            ${row.current_deal_score}
+        </td>
+
+        <td style="text-align:center">
+            ${row.points}
+        </td>
+
+        <td style="text-align:center;font-weight:bold;">
+            ${
+                row.player_status === "PLAYING"
+                    ? ""
+                    : row.player_status
+            }
+        </td>
+
+        </tr>
         `;
+
     });
-
-    html += `</div>`;
-});
-
-            container.innerHTML +=
-`
-<div class="result-row">
-
-    <div class="result-name">
-        ${row.display_name}
-    </div>
-
-    <div class="result-cards">
-        ${html}
-    </div>
-
-    <div class="result-score">
-        ${row.deal_score}
-    </div>
-
-    <div class="result-total">
-        ${row.total_score}
-    </div>
-
-</div>
-`;
-        });
-    
 
     document.getElementById(
         "dealResultModal"
     ).style.display = "block";
 }
+
 
 function clearCurrentDealUI()
 {
@@ -1638,7 +2171,7 @@ function clearCurrentDealUI()
     ).innerText = "";
 
     document.getElementById(
-        "turnSeat"
+        "currentTurnPlayer"
     ).innerText = "-";
 }
 
