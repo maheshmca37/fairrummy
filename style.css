@@ -737,3 +737,83 @@ body {
     color:#155724;
     font-weight:bold;
 }
+
+.result-scroll
+{
+    width:100%;
+    overflow-x:auto;
+}
+
+
+.result-table
+{
+    min-width:700px;
+    width:100%;
+    border-collapse:collapse;
+}
+
+
+.result-card-group
+{
+    display:inline-flex;
+    gap:3px;
+    margin-right:8px;
+    padding-right:8px;
+    border-right:1px solid #aaa;
+    vertical-align:middle;
+}
+
+
+.result-card
+{
+    width:32px;
+    height:45px;
+    background:white;
+    border:1px solid #888;
+    border-radius:5px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:13px;
+    font-weight:bold;
+
+    color:black;
+}
+
+
+.red-card
+{
+    color:red;
+}
+
+.joker-highlight
+{
+    border:2px solid orange;
+}
+
+.cards-horizontal
+{
+    display:flex;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    white-space:nowrap;
+    align-items:center;
+
+    max-width:600px;
+}
+
+
+.result-card-group
+{
+    display:flex;
+    flex-shrink:0;
+
+    gap:3px;
+
+    margin-right:10px;
+    padding-right:8px;
+
+    border-right:1px solid #777;
+}

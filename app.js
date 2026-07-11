@@ -683,7 +683,6 @@ async function handleTableCompleted(data)
         return;
     }
 
-    console.log("TABLE COMPLETED", data);
 
     state.tableCompleted = true;
 
@@ -764,9 +763,6 @@ async function handleTableCompleted(data)
 
 async function showTableCompletedScreen(data)
 {
-    console.log(
-        "Loading final result..."
-    );
 
 
     const {
@@ -790,13 +786,6 @@ async function showTableCompletedScreen(data)
 
         return;
     }
-
-
-    console.log(
-        "FINAL PLAYERS",
-        resultData
-    );
-
 
     const tbody =
         document.getElementById(
@@ -1018,6 +1007,8 @@ function startDeclarationTimer(){
             clearInterval(
                 state.declarationTimerInterval
             );
+            
+           document.getElementById("declarationTimer").innerText ='';
             onDeclarationTimerExpired();
 
         }
@@ -1995,6 +1986,7 @@ async function loadDealResults()
         return;
     }
 
+
     document.getElementById(
         "resultJokerCard"
     ).innerHTML =
@@ -2012,19 +2004,24 @@ async function loadDealResults()
     container.innerHTML = "";
 
         container.innerHTML = `
+        <div class="result-scroll">
         <table class="result-table">
+
         <thead>
         <tr>
-            <th>Player</th>
-            <th>Cards</th>
-            <th>Deal</th>
-            <th>Total</th>
-            <th>Status</th>
+        <th>Player</th>
+        <th>Cards</th>
+        <th>Score</th>
+        <th>Total</th>
+        <th>Status</th>
         </tr>
         </thead>
+
         <tbody id="resultTableBody">
         </tbody>
+
         </table>
+        </div>
         `;
 
         const tbody =
@@ -2042,8 +2039,7 @@ async function loadDealResults()
         {
             row.grouped_hand.forEach(group => {
 
-                html +=
-                `<div class="result-group-inline">`;
+               html += `<div class="result-card-group">`;
 
                 group.forEach(card => {
 
@@ -2066,7 +2062,7 @@ async function loadDealResults()
 
                     html += `
                         <div class="${cardClass}">
-                            ${card}
+                        ${card}
                         </div>
                     `;
                 });
@@ -2076,7 +2072,7 @@ async function loadDealResults()
         }
         else
         {
-            html = `<div class="result-group-inline">`;
+          html +=`<div class="result-card-group">`;
             if(row.original_hand)
             {
 
@@ -2096,9 +2092,9 @@ async function loadDealResults()
                 }
 
                 html += `
-                    <div class="${cardClass}">
-                        ${card}
-                    </div>
+                   <div class="${cardClass}">
+                    ${card}
+                   </div>
                 `;
             });
             }
