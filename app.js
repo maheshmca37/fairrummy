@@ -56,7 +56,6 @@ let state = {
   myScore: null
 };
 
-
 let savedUserId =
   localStorage.getItem("crdg_user_id");
 
@@ -2031,10 +2030,24 @@ async function loadDealResults()
 
     data.forEach(row => {
 
+        let showCards = true;
+
+        if(
+            row.drop_type === "DROP" ||
+            row.drop_type === "MID_DROP" ||
+            row.drop_type === "INVALID_DECLARE" ||
+            row.player_status === "ELIMINATED"
+        )
+        {
+            showCards = false;
+        }
+
+
         let html = "";
 
         // Winner / declared player cards
-        if(row.grouped_hand &&
+        if( showCards && 
+            row.grouped_hand &&
            row.grouped_hand.length > 0)
         {
             row.grouped_hand.forEach(group => {
@@ -2073,7 +2086,7 @@ async function loadDealResults()
         else
         {
           html +=`<div class="result-card-group">`;
-            if(row.original_hand)
+            if(showCards && row.original_hand)
             {
 
             row.original_hand.forEach(card => {
@@ -2112,7 +2125,8 @@ async function loadDealResults()
 
        <td>
         ${
-            row.grouped_hand || row.original_hand
+            showCards &&
+            (row.grouped_hand || row.original_hand)
             ? html
             : (
                 row.drop_type === "DROP"
@@ -2146,11 +2160,134 @@ async function loadDealResults()
 
     });
 
+
+    const rejoinPlayers = await loadRejoinCandidates();
+
+        if(rejoinPlayers.length > 0)
+        {
+            const me = rejoinPlayers.find(
+                p => p.user_id === state.userId
+            );
+
+            if(me)
+            {
+                showReJoinWindow(me);
+            }
+        }
+
     document.getElementById(
         "dealResultModal"
     ).style.display = "block";
 }
 
+function showReJoinWindow(player)
+{
+
+    const container =
+        document.getElementById(
+            "dealResultsContainer"
+        );
+
+    container.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div
+            id="rejoinPanel"
+            style="
+                margin-top:20px;
+                padding:15px;
+                border:2px solid orange;
+                border-radius:8px;
+                text-align:center;
+                background:#fff8e1;
+            ">
+
+            <h3>
+                ReJoin Available
+            </h3>
+
+            <div>
+                <b>${player.display_name}</b>
+            </div>
+
+            <br>
+            
+            <p
+            style="
+            color:#000;
+            font-weight:bold;
+            ">
+            You can Join Again
+            <br>
+            Would you like to ReJoin this table?
+            </p>
+
+            <br>
+
+            <button id="btnReJoin">
+                ReJoin
+            </button>
+
+            &nbsp;&nbsp;
+
+            <button id="btnCancelReJoin">
+                Cancel
+            </button>
+
+        </div>
+        `
+    );
+
+    document.getElementById(
+        "btnReJoin"
+    ).onclick = async function()
+    {
+
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_rejoin_player",
+                {
+                    p_session_id: state.sessionId,
+                    p_user_id:state.userId
+                }
+            );
+
+    };
+
+}
+
+
+async function loadRejoinCandidates()
+{
+
+    const 
+    {
+        data: rejoinData,
+        error: rejoinError
+
+    } = await supabaseClient.rpc(
+        "crdg_get_rejoin_candidates",
+        {
+            p_session_id: state.sessionId
+        }
+    );
+
+
+
+    if(rejoinError)
+    {
+        console.error(
+            "Rejoin candidates error",
+            rejoinError
+        );
+
+        return [];
+    }
+
+
+    return rejoinData || [];
+
+}
 
 function clearCurrentDealUI()
 {
