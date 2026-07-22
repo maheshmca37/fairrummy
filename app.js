@@ -382,36 +382,57 @@ async function onObservationTimerExpired()
    await startNextDeal();
 }
 
+
 async function startNextDeal()
 {
+    if (state.tableCompleted)
+    {
+        return;
+    }
 
-if(state.tableCompleted)
-{
-    return;
-}
+    // --------------------------------------------------
+    // ELIMINATED PLAYER
+    // They do not start the next deal,
+    // but they must refresh their screen.
+    // --------------------------------------------------
 
-if (state.playerStatus === "ELIMINATED")
-{
-    state.ignoreResultWindow = true;
-    state.resultWindowOpened = false;
-    state.resultWindowLoaded = false;
+    if (state.playerStatus === "ELIMINATED")
+    {
+        state.ignoreResultWindow = true;
+        state.resultWindowOpened = false;
+        state.resultWindowLoaded = false;
 
-    clearInterval(state.observationTimerInterval);
+        clearInterval(state.observationTimerInterval);
 
-    document.getElementById("dealResultModal").style.display = "none";
+        document.getElementById(
+            "dealResultModal"
+        ).style.display = "none";
 
-    setTimeout(async () => {
+        setTimeout(async () =>
+        {
+            try
+            {
+                await loadGame();
+                await loadSessionInfo();
+                await loadPlayers();
 
-        await loadGame();
-        await loadSessionInfo();
-        await loadPlayers();
+                state.ignoreResultWindow = false;
+            }
+            catch (error)
+            {
+                console.error(
+                    "Eliminated-player refresh failed:",
+                    error
+                );
+            }
+        }, 2500);
 
-        state.ignoreResultWindow = false;
+        return;
+    }
 
-    }, 2500);
-
-    return;
-}
+    // --------------------------------------------------
+    // RESET LOCAL RESULT-WINDOW STATE
+    // --------------------------------------------------
 
     state.ignoreResultWindow = true;
     state.resultWindowOpened = false;
@@ -420,54 +441,251 @@ if (state.playerStatus === "ELIMINATED")
     state.isDropped = false;
     state.dropType = "";
 
-    
-   // await loadSessionInfo();
+    state.declarationTimerStarted = false;
 
-    if(state.seatNo === state.dealerSeat)
+    clearInterval(state.observationTimerInterval);
+
+    document.getElementById(
+        "dealResultsContainer"
+    ).innerHTML = "";
+
+    document.getElementById(
+        "resultJokerCard"
+    ).innerHTML = "";
+
+    document.getElementById(
+        "dealResultModal"
+    ).style.display = "none";
+
+    // Save this before any seat rebuilding occurs.
+    const isCurrentDealer =
+        Number(state.seatNo) === Number(state.dealerSeat);
+
+    // --------------------------------------------------
+    // ONLY CURRENT DEALER STARTS DATABASE PROCEDURES
+    // --------------------------------------------------
+
+    if (isCurrentDealer)
     {
-        const { data, error } =
-            await supabaseClient.rpc(
+        try
+        {
+            console.log("Preparing next deal...");
+
+            // --------------------------------------------------
+            // 1. PREPARE NEXT DEAL
+            // --------------------------------------------------
+
+            const {
+                data: prepareData,
+                error: prepareError
+            } = await supabaseClient.rpc(
                 "crdg_prepare_next_deal",
                 {
                     p_session_id: state.sessionId
                 }
             );
 
-        if(error)
+            if (prepareError)
+            {
+                console.error(
+                    "crdg_prepare_next_deal failed:",
+                    prepareError
+                );
+
+                state.ignoreResultWindow = false;
+                return;
+            }
+
+            console.log(
+                "Next deal prepared:",
+                prepareData
+            );
+
+            // --------------------------------------------------
+            // 2. CHECK REJOIN QUEUE
+            // --------------------------------------------------
+
+            const {
+                data: queueData,
+                error: queueError
+            } = await supabaseClient
+                .from("crdg_rejoin_queue")
+                .select("user_id")
+                .eq("session_id", state.sessionId);
+
+            if (queueError)
+            {
+                console.error(
+                    "Failed to read rejoin queue:",
+                    queueError
+                );
+
+                state.ignoreResultWindow = false;
+                return;
+            }
+
+            const rejoinCount =
+                Array.isArray(queueData)
+                    ? queueData.length
+                    : 0;
+
+            console.log(
+                "Rejoin queue count:",
+                rejoinCount
+            );
+
+            // --------------------------------------------------
+            // 3. REBUILD TURN ORDER
+            // Only when rejoin queue contains players
+            // --------------------------------------------------
+
+            if (rejoinCount > 0)
+            {
+                console.log(
+                    "Rejoin players found. Rebuilding turn order..."
+                );
+
+                const {
+                    data: rebuildData,
+                    error: rebuildError
+                } = await supabaseClient.rpc(
+                    "crdg_rebuild_turn_order",
+                    {
+                        p_session_id: state.sessionId
+                    }
+                );
+
+                if (rebuildError)
+                {
+                    console.error(
+                        "crdg_rebuild_turn_order failed:",
+                        rebuildError
+                    );
+
+                    state.ignoreResultWindow = false;
+                    return;
+                }
+
+                console.log(
+                    "Turn order rebuilt successfully:",
+                    rebuildData
+                );
+            }
+            else
+            {
+                console.log(
+                    "No rejoin players. Turn-order rebuild skipped."
+                );
+            }
+
+            // --------------------------------------------------
+            // 4. START NEW DEAL
+            // --------------------------------------------------
+
+            const {
+                data: startData,
+                error: startError
+            } = await supabaseClient.rpc(
+                "crdg_start_new_deal",
+                {
+                    p_session_id: state.sessionId
+                }
+            );
+
+            if (startError)
+            {
+                console.error(
+                    "crdg_start_new_deal failed:",
+                    startError
+                );
+
+                state.ignoreResultWindow = false;
+                return;
+            }
+
+            console.log(
+                "New deal started successfully:",
+                startData
+            );
+        }
+        catch (error)
         {
-            console.error(error);
+            console.error(
+                "startNextDeal unexpected error:",
+                error
+            );
+
+            state.ignoreResultWindow = false;
             return;
         }
     }
+    else
+    {
+        // Do not return here.
+        // Non-dealers must continue and refresh below.
 
+        console.log(
+            "Waiting for dealer to start the new deal..."
+        );
+    }
 
-    document.getElementById(
-    "dealResultsContainer"
-).innerHTML = "";
+    // --------------------------------------------------
+    // ALL ACTIVE PLAYERS REFRESH
+    //
+    // Dealer:
+    // waits for DB procedures to finish, then refreshes.
+    //
+    // Non-dealers:
+    // wait briefly for dealer procedures, then refresh.
+    // --------------------------------------------------
 
-document.getElementById(
-    "resultJokerCard"
-).innerHTML = "";
+    setTimeout(async () =>
+    {
+        try
+        {
+            await loadGame();
 
-    state.declarationTimerStarted = false;
+            // Must reload dealer seat, current turn,
+            // session values and this player's new seat.
+            await loadSessionInfo();
 
-    clearInterval(state.observationTimerInterval);
+            // Must reload all players because seat numbers
+            // may have changed after rejoin rebuilding.
+            await loadPlayers();
 
-    document.getElementById(
-        "dealResultModal"
-    ).style.display = "none";
+            renderHand();
 
-    // TEMPORARY TEST
-    setTimeout(async () => {
+            /*
+             * Be careful with this.
+             *
+             * A new deal has just started, so normally the deal
+             * score should not be calculated immediately.
+             *
+             * Keep this only if calculateDealScore() merely
+             * refreshes a display and does not save/finalize score.
+             */
+            // calculateDealScore();
 
-        await loadGame();
-        await loadSessionInfo();
-        await loadPlayers();
+            state.ignoreResultWindow = false;
 
-        renderHand();
-        calculateDealScore();
-        state.ignoreResultWindow = false;
+            console.log(
+                "New-deal state refreshed successfully",
+                {
+                    seatNo: state.seatNo,
+                    dealerSeat: state.dealerSeat,
+                    currentTurnSeat: state.currentTurnSeat
+                }
+            );
+        }
+        catch (error)
+        {
+            console.error(
+                "New-deal refresh failed:",
+                error
+            );
 
+            state.ignoreResultWindow = false;
+        }
     }, 2500);
 }
 
@@ -2238,19 +2456,45 @@ function showReJoinWindow(player)
         `
     );
 
-    document.getElementById(
-        "btnReJoin"
-    ).onclick = async function()
-    {
+    document.getElementById('btnReJoin').onclick = async function () {
 
-        const { data, error } =
-            await supabaseClient.rpc(
-                "crdg_rejoin_player",
-                {
-                    p_session_id: state.sessionId,
-                    p_user_id:state.userId
-                }
-            );
+        // prevent double click
+        this.disabled = true;
+
+        // 1. restore player score/status
+        const r1 = await supabaseClient.rpc(
+            'crdg_rejoin_player',
+            {
+                p_session_id: state.sessionId,
+                p_user_id: state.userId
+            }
+        );
+
+        if (r1.error) {
+            console.error(r1.error);
+            this.disabled = false;
+            return;
+        }
+
+        // 2. add player to rejoin queue
+        const r2 = await supabaseClient
+            .from('crdg_rejoin_queue')
+            .upsert({
+                session_id: state.sessionId,
+                user_id: state.userId
+            });
+
+        if (r2.error) {
+            console.error(r2.error);
+            this.disabled = false;
+            return;
+        }
+
+        // 3. UI feedback
+        document.getElementById('btnReJoin').innerText = 'ReJoined';
+        document.getElementById('btnReJoin').style.background = '#2e7d32';
+
+        console.log('Player added to rejoin queue');
 
     };
 
