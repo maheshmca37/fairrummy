@@ -1,375 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CRDG Rummy</title>
-
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+  >
+  <meta name="theme-color" content="#06121a">
+  <title>CRDG Rummy</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-<!-- ================================================= -->
-<!-- JOIN SCREEN -->
-<!-- ================================================= -->
+  <!-- JOIN SCREEN -->
+  <section id="joinScreen" class="join-screen screen-layer">
+    <div class="auth-card">
+      <h2>🎮 Join Rummy Table</h2>
 
-<div id="joinScreen" class="join-screen">
+      <input id="tableIdInput" type="number" inputmode="numeric" placeholder="Table ID" value="777777">
+      <input id="password" type="password" placeholder="Password">
+      <input id="nickname" type="text" placeholder="Nickname" autocomplete="nickname">
 
-    <h2>🎮 Join Rummy Table</h2>
-
-    <input
-        id="tableIdInput"
-        type="number"
-        placeholder="Table ID"
-        value="777777"
-    >
-
-    <input
-        id="password"
-        type="password"
-        placeholder="Password"
-    >
-
-    <input
-        id="nickname"
-        type="text"
-        placeholder="Nickname"
-    >
-
-    <button type="button" onclick="joinTable()">
-        Join Game
-    </button>
-
-</div>
-
-<!-- ================================================= -->
-<!-- LOBBY SCREEN -->
-<!-- ================================================= -->
-
-<div id="lobbyScreen" class="lobby-screen hidden">
-
-    <h2>🎮 Waiting Room</h2>
-
-    <div class="lobby-card">
-
-        <div>
-            Table :
-            <span id="lobbyTableId">-</span>
-        </div>
-
-        <div>
-            Your Seat :
-            <span id="lobbySeat">-</span>
-        </div>
-
-        <div>
-            Players :
-            <span id="lobbyPlayers">0</span>/6
-        </div>
-
-        <div>
-            Starts In :
-            <span id="lobbyTimer">60</span>
-            sec
-        </div>
-
+      <button type="button" onclick="joinTable()">Join Game</button>
     </div>
+  </section>
 
-    <h3>Joined Players</h3>
+  <!-- LOBBY SCREEN -->
+  <section id="lobbyScreen" class="lobby-screen screen-layer hidden">
+    <div class="lobby-wrap">
+      <h2>🎮 Waiting Room</h2>
 
-    <div id="lobbyPlayerList" class="lobby-player-list">
+      <div class="lobby-card">
+        <div>Table: <span id="lobbyTableId">-</span></div>
+        <div>Your Seat: <span id="lobbySeat">-</span></div>
+        <div>Players: <span id="lobbyPlayers">0</span>/6</div>
+        <div>Starts In: <span id="lobbyTimer">60</span> sec</div>
+      </div>
 
-        <div id="seat1">Seat 1 : Empty</div>
-        <div id="seat2">Seat 2 : Empty</div>
-        <div id="seat3">Seat 3 : Empty</div>
-        <div id="seat4">Seat 4 : Empty</div>
-        <div id="seat5">Seat 5 : Empty</div>
-        <div id="seat6">Seat 6 : Empty</div>
+      <h3>Joined Players</h3>
 
+      <div id="lobbyPlayerList" class="lobby-player-list">
+        <div id="seat1">Seat 1: Empty</div>
+        <div id="seat2">Seat 2: Empty</div>
+        <div id="seat3">Seat 3: Empty</div>
+        <div id="seat4">Seat 4: Empty</div>
+        <div id="seat5">Seat 5: Empty</div>
+        <div id="seat6">Seat 6: Empty</div>
+      </div>
     </div>
+  </section>
 
-</div>
+  <!-- GAME SCREEN -->
+  <div id="app" class="game-viewport hidden">
+    <div id="gameStage" class="game-stage">
 
-<!-- ================================================= -->
-<!-- GAME SCREEN -->
-<!-- ================================================= -->
+      <header class="topbar">
+        <div>Table: <span id="tableIdDisplay">-</span></div>
+        <div>Current Turn: <span id="currentTurnPlayer">-</span></div>
+        <div>⏱ Turn Timer: <span id="turnTimer">40</span></div>
+      </header>
 
-<div id="app" class="hidden">
-
-    <!-- TOP BAR -->
-
-    <header class="topbar">
-
-        <div>
-            Table :
-            <span id="tableIdDisplay">-</span>
-        </div>
-
-        <div>
-           Current Turn :
-          <span id="currentTurnPlayer">-</span>
-        </div>
-        
-        
-        <div>
-       ⏱ Turn Timer :
-          <span id="turnTimer">40</span>
-        </div>
-
-
-    </header>
-
-    <!-- TABLE -->
-
-    <main class="table">
-
-        <!-- OPPONENTS -->
-
-        <section id="opponents" class="opponents">
-
-            <div id="opp1" class="opponent-seat"></div>
-            <div id="opp2" class="opponent-seat"></div>
-            <div id="opp3" class="opponent-seat"></div>
-            <div id="opp4" class="opponent-seat"></div>
-            <div id="opp5" class="opponent-seat"></div>
-
-       
+      <main class="table">
+        <section id="opponents" class="opponents" aria-label="Opponents">
+          <div id="opp1" class="opponent-seat"></div>
+          <div id="opp2" class="opponent-seat"></div>
+          <div id="opp3" class="opponent-seat"></div>
+          <div id="opp4" class="opponent-seat"></div>
+          <div id="opp5" class="opponent-seat"></div>
         </section>
-
-        <!-- CENTER AREA -->
 
         <section class="center">
-
-        <div class="table-piles">
-
-
-        <div class="open-area">
-            <div id="openVisual" class="table-card clickable-pile">-</div>
-            
-        </div>
-
-        <div class="stock-area">
-
-            <div id="jokerVisual" class="table-card joker-card">
-                -
+          <div class="table-piles">
+            <div class="open-area">
+              <div id="openVisual" class="table-card clickable-pile">-</div>
             </div>
 
-            <div id="stockCard" class="card-back clickable-pile">
+            <div class="stock-area">
+              <div id="jokerVisual" class="table-card joker-card">-</div>
+              <div id="stockCard" class="card-back clickable-pile"></div>
             </div>
 
-           
-        </div>
+            <div id="declarationTimer"></div>
+          </div>
 
-        <div id="declarationTimer">
-       </div>
-
-
-                        
-
-        </div>
-
-            <div class="actions">
-
-
-                <button
-                    id="btnDiscard"
-                    type="button"
-                    onclick="discard()">
-                    Discard
-                </button>
-
-                <button
-                    id="btnDeclare"
-                    type="button"
-                    onclick="declareGame()">
-                    Declare
-                </button>
-
-            </div>
-
+          <div class="actions">
+            <button id="btnDiscard" type="button" onclick="discard()">Discard</button>
+            <button id="btnDeclare" type="button" onclick="declareGame()">Declare</button>
+          </div>
         </section>
 
-        <!-- MY HAND -->
-    <div id="myPlayerPanel" class="my-player-panel">
+        <section id="myPlayerPanel" class="my-player-panel">
+          <div class="my-player-details">
+            <div id="myInfo">You</div>
+            <div id="myScore">Score: 0</div>
+            <div id="dealScore">Deal Score: 0</div>
+          </div>
 
-    <div id="myInfo">You</div>
+          <button id="dropBtn" type="button" onclick="dropCurrentDeal()">DROP</button>
+          <div id="dropStatus" class="drop-status"></div>
+        </section>
 
-    <div id="myScore"> Score : 0   </div>
-    <div id="dealScore"> Deal Score : 0 </div>
-    <button id="dropBtn" onclick="dropCurrentDeal()">   DROP </button>
-      <div
-        id="dropStatus"
-        style="
-            display:none;
-            text-align:center;
-            font-size:12px;
-            font-weight:bold;
-            color:red;
-            margin-bottom:10px;
-        ">
+        <section id="my-hand" class="hand" aria-label="My cards">
+          <div class="group-box" id="group0"></div>
+          <div class="group-box" id="group1"></div>
+          <div class="group-box" id="group2"></div>
+          <div class="group-box" id="group3"></div>
+          <div class="group-box" id="group4"></div>
+        </section>
+      </main>
+
+      <aside id="chat-box" class="chat"></aside>
     </div>
+  </div>
+
+  <!-- DECLARE PANEL -->
+  <section id="declarePanel" class="declare-panel hidden">
+    <div class="declare-content">
+      <h3>Arrange Your Cards</h3>
+      <div class="groups">
+        <div class="group" data-group="0"><h4>Group 1</h4></div>
+        <div class="group" data-group="1"><h4>Group 2</h4></div>
+        <div class="group" data-group="2"><h4>Group 3</h4></div>
+        <div class="group" data-group="3"><h4>Group 4</h4></div>
+        <div class="group" data-group="4"><h4>Group 5</h4></div>
+      </div>
     </div>
+  </section>
 
-<section id="my-hand" class="hand">
-      
-
-    <div class="group-box" id="group0"></div>
-    <div class="group-box" id="group1"></div>
-    <div class="group-box" id="group2"></div>
-    <div class="group-box" id="group3"></div>
-    <div class="group-box" id="group4"></div>
-
-</section>
-        
-    </main>
-
-    <!-- CHAT -->
-
-    <aside
-        id="chat-box"
-        class="chat">
-    </aside>
-
-</div>
-
-<!-- ================================================= -->
-<!-- DECLARE PANEL -->
-<!-- ================================================= -->
-
-<div
-    id="declarePanel"
-    class="declare-panel hidden">
-
-    <h3>Arrange Your Cards</h3>
-
-    <div class="groups">
-
-        <div class="group" data-group="0">
-            <h4>Group 1</h4>
-        </div>
-
-        <div class="group" data-group="1">
-            <h4>Group 2</h4>
-        </div>
-
-        <div class="group" data-group="2">
-            <h4>Group 3</h4>
-        </div>
-
-        <div class="group" data-group="3">
-            <h4>Group 4</h4>
-        </div>
-
-        <div class="group" data-group="4">
-            <h4>Group 5</h4>
-        </div>
-
-    </div>
-
-
-</div>
-
-
-
-<div id="dealResultModal" class="result-modal">
-
+  <!-- DEAL RESULT -->
+  <section id="dealResultModal" class="result-modal">
     <div class="result-box">
+      <div class="result-header">
+        <span>Deal Results</span>
+        <span id="resultTimer">30</span>
+      </div>
 
-        <div class="result-header">
+      <div class="next-deal-line">
+        Next Deal in: <span id="observationTimer">30</span>
+      </div>
 
-            Deal Results
-
-            <span id="resultTimer">
-                30
-            </span>
-
-        </div>
-        <div>
-    Next Deal in :
-    <span id="observationTimer">
-        30
-    </span>
-</div>
-        <div id="resultJokerCard"></div>
-
-   
-        <div id="dealResultsContainer">
-        </div>
-
+      <div id="resultJokerCard"></div>
+      <div id="dealResultsContainer"></div>
     </div>
+  </section>
 
-</div>
-<!-- ================================================= -->
-<!-- HISTORY -->
-<!-- ================================================= -->
-
-<div
-    id="historyCard"
-    class="history-card hidden">
-
+  <!-- HISTORY -->
+  <section id="historyCard" class="history-card hidden">
     <h3>🧾 Last Game Summary</h3>
-
     <div id="historyContent"></div>
+    <button type="button" onclick="closeHistory()">Close</button>
+  </section>
 
-    <button
-        type="button"
-        onclick="closeHistory()">
-        Close
-    </button>
-
-</div>
-
-<!-- ================================================= -->
-<!-- SUPABASE -->
-<!-- ================================================= -->
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-<!-- ================================================= -->
-<!-- APP -->
-<!-- ================================================= -->
-
-
-
-<div id="tableCompletedScreen">
-
+  <!-- TABLE COMPLETED -->
+  <section id="tableCompletedScreen">
     <div class="winner-card">
+      <div class="trophy">🏆</div>
+      <h1>TABLE COMPLETED</h1>
 
-        <div class="trophy">
-            🏆
-        </div>
-
-        <h1>
-            TABLE COMPLETED
-        </h1>
-
+      <div class="table-scroll">
         <table id="finalScoreTable">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Score</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="finalScoreBody"></tbody>
+        </table>
+      </div>
 
-    <thead>
-        <tr>
-            <th>Player</th>
-            <th>Score</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-
-    <tbody id="finalScoreBody">
-
-    </tbody>
-
-</table>
-
-        <p>
-            Thank you for playing
-        </p>
-
+      <p>Thank you for playing</p>
     </div>
+  </section>
 
-</div>
-
-
-<script src="app.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script src="app.js"></script>
+  <script src="responsive.js"></script>
 </body>
 </html>
