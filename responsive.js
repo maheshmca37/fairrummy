@@ -78,52 +78,55 @@
     */
 
     function applyMobileMode() {
-        const { app, stage } = getElements();
+    const { app, stage } = getElements();
 
-        if (!app || !stage) {
-            return;
-        }
-
-        if (app.classList.contains("hidden")) {
-            return;
-        }
-
-        const viewportWidth =
-            window.visualViewport?.width || window.innerWidth;
-
-        const viewportHeight =
-            window.visualViewport?.height || window.innerHeight;
-
-        const scaleX = viewportWidth / DESIGN_WIDTH;
-        const scaleY = viewportHeight / DESIGN_HEIGHT;
-
-        const scale = Math.min(scaleX, scaleY);
-
-        document.documentElement.classList.add("mobile-game-mode");
-        document.body.classList.add("mobile-game-mode");
-
-        document.documentElement.style.overflow = "hidden";
-        document.body.style.overflow = "hidden";
-
-        app.style.position = "fixed";
-        app.style.inset = "0";
-        app.style.width = "100%";
-        app.style.height = "100%";
-        app.style.minHeight = "0";
-        app.style.overflow = "hidden";
-
-        stage.style.position = "absolute";
-        stage.style.top = "50%";
-        stage.style.left = "50%";
-
-        stage.style.width = `${DESIGN_WIDTH}px`;
-        stage.style.minWidth = `${DESIGN_WIDTH}px`;
-        stage.style.height = `${DESIGN_HEIGHT}px`;
-
-        stage.style.transformOrigin = "center center";
-        stage.style.transform =
-            `translate(-50%, -50%) scale(${scale})`;
+    if (!app || !stage) {
+        return;
     }
+
+    if (app.classList.contains("hidden")) {
+        return;
+    }
+
+    const viewportWidth =
+        window.visualViewport?.width || window.innerWidth;
+
+    const viewportHeight =
+        window.visualViewport?.height || window.innerHeight;
+
+    /*
+     Scale width and height separately so the game
+     occupies the complete available mobile screen.
+    */
+    const scaleX = viewportWidth / DESIGN_WIDTH;
+    const scaleY = viewportHeight / DESIGN_HEIGHT;
+
+    document.documentElement.classList.add("mobile-game-mode");
+    document.body.classList.add("mobile-game-mode");
+
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    app.style.position = "fixed";
+    app.style.inset = "0";
+    app.style.width = "100%";
+    app.style.height = "100%";
+    app.style.minHeight = "0";
+    app.style.overflow = "hidden";
+
+    stage.style.position = "absolute";
+    stage.style.top = "50%";
+    stage.style.left = "50%";
+
+    stage.style.width = `${DESIGN_WIDTH}px`;
+    stage.style.minWidth = `${DESIGN_WIDTH}px`;
+    stage.style.height = `${DESIGN_HEIGHT}px`;
+
+    stage.style.transformOrigin = "center center";
+
+    stage.style.transform =
+        `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`;
+}
 
     /*
     =====================================================
