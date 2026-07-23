@@ -1,15 +1,16 @@
 /*
 =========================================================
- CRDG RUMMY RESPONSIVE LAYOUT
+ CRDG RUMMY RESPONSIVE CONTROLLER
+=========================================================
 
  Desktop / Laptop:
- - Normal layout
- - No scaling
- - Scrolling allowed
+ - Normal full-width layout
+ - Page scrolling allowed when necessary
 
- Mobile:
- - Entire 1280 × 720 game is scaled to fit
- - Scrolling disabled
+ Mobile / Tablet:
+ - Fixed 1280 × 720 game stage
+ - Entire game scaled to fit screen
+ - Stage centred correctly
 =========================================================
 */
 
@@ -21,166 +22,148 @@
     const MOBILE_BREAKPOINT = 900;
 
     let resizeTimer = null;
-    let appElement = null;
 
-    function getAppElement() {
-        if (!appElement) {
-            appElement = document.getElementById("app");
-        }
-
-        return appElement;
+    function getElements() {
+        return {
+            app: document.getElementById("app"),
+            stage: document.getElementById("gameStage")
+        };
     }
 
-    function isMobileScreen() {
+    function isMobileMode() {
         return window.innerWidth <= MOBILE_BREAKPOINT;
     }
 
     /*
     =====================================================
-     LAPTOP / DESKTOP MODE
+     DESKTOP / LAPTOP
     =====================================================
     */
-    function enableDesktopMode() {
-        const app = getAppElement();
 
-        if (!app) {
+    function applyDesktopMode() {
+        const { app, stage } = getElements();
+
+        if (!app || !stage) {
             return;
         }
 
-        document.documentElement.style.width = "";
-        document.documentElement.style.height = "";
+        document.documentElement.classList.remove("mobile-game-mode");
+        document.body.classList.remove("mobile-game-mode");
+
         document.documentElement.style.overflow = "";
-
-        document.body.style.width = "";
-        document.body.style.height = "";
         document.body.style.overflow = "";
-        document.body.style.position = "";
-        document.body.style.display = "";
 
-        app.style.position = "";
-        app.style.left = "";
-        app.style.top = "";
-        app.style.width = "";
-        app.style.height = "";
-        app.style.minWidth = "";
-        app.style.minHeight = "";
-        app.style.transform = "";
-        app.style.transformOrigin = "";
+        app.style.position = "relative";
+        app.style.inset = "";
+        app.style.width = "100%";
+        app.style.height = "auto";
+        app.style.minHeight = `${DESIGN_HEIGHT}px`;
+        app.style.overflow = "visible";
+
+        stage.style.position = "relative";
+        stage.style.top = "0";
+        stage.style.left = "0";
+        stage.style.width = "100%";
+        stage.style.minWidth = `${DESIGN_WIDTH}px`;
+        stage.style.height = `${DESIGN_HEIGHT}px`;
+
+        stage.style.transform = "none";
+        stage.style.transformOrigin = "";
     }
 
     /*
     =====================================================
-     MOBILE MODE
+     MOBILE / TABLET
     =====================================================
     */
-    function enableMobileMode() {
-        const app = getAppElement();
 
-        if (!app) {
+    function applyMobileMode() {
+        const { app, stage } = getElements();
+
+        if (!app || !stage) {
             return;
         }
 
-        /*
-         Do not calculate the game while it is hidden.
-         The observer will call this again after it opens.
-        */
         if (app.classList.contains("hidden")) {
             return;
         }
 
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
+        const viewportWidth =
+            window.visualViewport?.width || window.innerWidth;
+
+        const viewportHeight =
+            window.visualViewport?.height || window.innerHeight;
 
         const scaleX = viewportWidth / DESIGN_WIDTH;
         const scaleY = viewportHeight / DESIGN_HEIGHT;
 
         const scale = Math.min(scaleX, scaleY);
 
-        const scaledWidth = DESIGN_WIDTH * scale;
-        const scaledHeight = DESIGN_HEIGHT * scale;
+        document.documentElement.classList.add("mobile-game-mode");
+        document.body.classList.add("mobile-game-mode");
 
-        const leftPosition = Math.max(
-            0,
-            (viewportWidth - scaledWidth) / 2
-        );
-
-        const topPosition = Math.max(
-            0,
-            (viewportHeight - scaledHeight) / 2
-        );
-
-        document.documentElement.style.width = "100%";
-        document.documentElement.style.height = "100%";
         document.documentElement.style.overflow = "hidden";
-
-        document.body.style.width = "100%";
-        document.body.style.height = "100%";
         document.body.style.overflow = "hidden";
-        document.body.style.position = "relative";
-        document.body.style.display = "block";
 
         app.style.position = "fixed";
-        app.style.left = `${leftPosition}px`;
-        app.style.top = `${topPosition}px`;
+        app.style.inset = "0";
+        app.style.width = "100%";
+        app.style.height = "100%";
+        app.style.minHeight = "0";
+        app.style.overflow = "hidden";
 
-        app.style.width = `${DESIGN_WIDTH}px`;
-        app.style.height = `${DESIGN_HEIGHT}px`;
-        app.style.minWidth = `${DESIGN_WIDTH}px`;
-        app.style.minHeight = `${DESIGN_HEIGHT}px`;
+        stage.style.position = "absolute";
+        stage.style.top = "50%";
+        stage.style.left = "50%";
 
-        app.style.transformOrigin = "top left";
-        app.style.transform = `scale(${scale})`;
+        stage.style.width = `${DESIGN_WIDTH}px`;
+        stage.style.minWidth = `${DESIGN_WIDTH}px`;
+        stage.style.height = `${DESIGN_HEIGHT}px`;
+
+        stage.style.transformOrigin = "center center";
+        stage.style.transform =
+            `translate(-50%, -50%) scale(${scale})`;
     }
 
     /*
     =====================================================
-     APPLY CORRECT MODE
+     APPLY CURRENT MODE
     =====================================================
     */
-    function applyResponsiveMode() {
-        if (isMobileScreen()) {
-            enableMobileMode();
+
+    function refreshLayout() {
+        if (isMobileMode()) {
+            applyMobileMode();
         } else {
-            enableDesktopMode();
+            applyDesktopMode();
         }
     }
 
-    /*
-    =====================================================
-     RESIZE HANDLER
-    =====================================================
-    */
-    function handleResize() {
+    function delayedRefresh() {
         clearTimeout(resizeTimer);
 
         resizeTimer = setTimeout(function () {
-            applyResponsiveMode();
+            refreshLayout();
         }, 100);
     }
 
     /*
     =====================================================
-     WATCH FOR GAME SCREEN OPENING
+     WATCH APP OPEN / CLOSE
     =====================================================
     */
+
     function observeGameScreen() {
-        const app = getAppElement();
+        const { app } = getElements();
 
         if (!app) {
             return;
         }
 
-        const observer = new MutationObserver(function (mutations) {
-            for (const mutation of mutations) {
-                if (
-                    mutation.type === "attributes" &&
-                    mutation.attributeName === "class"
-                ) {
-                    requestAnimationFrame(function () {
-                        applyResponsiveMode();
-                    });
-                }
-            }
+        const observer = new MutationObserver(function () {
+            requestAnimationFrame(function () {
+                refreshLayout();
+            });
         });
 
         observer.observe(app, {
@@ -189,23 +172,23 @@
         });
     }
 
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", delayedRefresh);
 
     window.addEventListener("orientationchange", function () {
-        setTimeout(function () {
-            applyResponsiveMode();
-        }, 300);
+        setTimeout(refreshLayout, 350);
     });
 
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener(
+            "resize",
+            delayedRefresh
+        );
+    }
+
     window.addEventListener("load", function () {
-        applyResponsiveMode();
+        refreshLayout();
         observeGameScreen();
     });
 
-    /*
-     You can call this manually after opening the game screen:
-
-     window.refreshRummyLayout();
-    */
-    window.refreshRummyLayout = applyResponsiveMode;
+    window.refreshRummyLayout = refreshLayout;
 })();
