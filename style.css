@@ -454,17 +454,54 @@ button {
 }
 
 .card {
-  width: 50px;
-  height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 6px;
-  background: white;
-  color: black;
-  cursor: pointer;
-  transition: transform .2s ease, opacity .2s ease;
+    width: 54px;
+    height: 84px;
+
+    background: white;
+    color: #111;
+
+    border: 1px solid #d8d8d8;
+    border-radius: 7px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+
+    padding: 2px;
+
+    box-sizing: border-box;
+    white-space: nowrap;
+    cursor: pointer;
+
+    box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.35);
+
+    transition:
+        transform 0.25s ease,
+        opacity 0.25s ease;
+}
+
+.card-rank {
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.card-suit {
+    font-size: 21px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.card-value {
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.joker-star {
+    font-size: 14px;
+    line-height: 1;
 }
 
 .card:hover {
@@ -487,13 +524,18 @@ button {
 }
 
 .red-card {
-  color: red !important;
-  font-weight: 700;
+    color: #e00000 !important;
+    font-weight: 900;
 }
 
 .joker-highlight {
-  border: 3px solid var(--gold);
-  box-shadow: 0 0 10px var(--gold);
+    border: 3px solid gold;
+    box-shadow:
+        0 0 8px gold,
+        0 2px 5px rgba(0, 0, 0, 0.35);
+}
+.card.joker-highlight {
+    font-size: 16px;
 }
 
 /* CHAT */

@@ -262,18 +262,35 @@ function renderHand() {
 
             // DISPLAY
 
+            // DISPLAY
+
             if (isJokerCard(card)) {
 
-                div.innerText =
-                    card + " ⭐";
+                div.innerHTML = `
+                    <span class="card-value">
+                        ${card}
+                    </span>
+                    <span class="joker-star">
+                        ⭐
+                    </span>
+                `;
 
-                div.classList.add(
-                    "joker-highlight"
-                );
+                div.classList.add("joker-highlight");
 
             } else {
 
-                div.innerText = card;
+                const suit = card.slice(-1);
+                const rank = card.slice(0, -1);
+
+                div.innerHTML = `
+                    <span class="card-rank">
+                        ${rank}
+                    </span>
+
+                    <span class="card-suit">
+                        ${suit}
+                    </span>
+                `;
             }
 
             if (
@@ -469,7 +486,6 @@ async function startNextDeal()
     {
         try
         {
-            console.log("Preparing next deal...");
 
             // --------------------------------------------------
             // 1. PREPARE NEXT DEAL
@@ -496,10 +512,7 @@ async function startNextDeal()
                 return;
             }
 
-            console.log(
-                "Next deal prepared:",
-                prepareData
-            );
+        
 
             // --------------------------------------------------
             // 2. CHECK REJOIN QUEUE
@@ -529,10 +542,7 @@ async function startNextDeal()
                     ? queueData.length
                     : 0;
 
-            console.log(
-                "Rejoin queue count:",
-                rejoinCount
-            );
+            
 
             // --------------------------------------------------
             // 3. REBUILD TURN ORDER
@@ -541,9 +551,7 @@ async function startNextDeal()
 
             if (rejoinCount > 0)
             {
-                console.log(
-                    "Rejoin players found. Rebuilding turn order..."
-                );
+            
 
                 const {
                     data: rebuildData,
@@ -566,10 +574,6 @@ async function startNextDeal()
                     return;
                 }
 
-                console.log(
-                    "Turn order rebuilt successfully:",
-                    rebuildData
-                );
             }
             else
             {
@@ -603,10 +607,7 @@ async function startNextDeal()
                 return;
             }
 
-            console.log(
-                "New deal started successfully:",
-                startData
-            );
+            
         }
         catch (error)
         {
@@ -624,9 +625,7 @@ async function startNextDeal()
         // Do not return here.
         // Non-dealers must continue and refresh below.
 
-        console.log(
-            "Waiting for dealer to start the new deal..."
-        );
+        
     }
 
     // --------------------------------------------------
@@ -668,14 +667,6 @@ async function startNextDeal()
 
             state.ignoreResultWindow = false;
 
-            console.log(
-                "New-deal state refreshed successfully",
-                {
-                    seatNo: state.seatNo,
-                    dealerSeat: state.dealerSeat,
-                    currentTurnSeat: state.currentTurnSeat
-                }
-            );
         }
         catch (error)
         {
