@@ -56,6 +56,8 @@
 
       <header class="topbar">
         <div>Table: <span id="tableIdDisplay">-</span></div>
+        <div class="topbar-item"> Dealer : <span id="dealerName">-</span></div>
+
         <div>Current Turn: <span id="currentTurnPlayer">-</span></div>
         <div>⏱ Turn Timer: <span id="turnTimer">40</span></div>
       </header>
@@ -70,35 +72,98 @@
         </section>
 
         <section class="center">
-          <div class="table-piles">
+
+        <div class="table-piles">
+
+            <!-- OPEN CARD -->
+
             <div class="open-area">
-              <div id="openVisual" class="table-card clickable-pile">-</div>
+
+                <div
+                    id="openVisual"
+                    class="table-card clickable-pile">
+                    -
+                </div>
+
             </div>
+
+            <!-- JOKER + STOCK -->
 
             <div class="stock-area">
-              <div id="jokerVisual" class="table-card joker-card">-</div>
-              <div id="stockCard" class="card-back clickable-pile"></div>
+
+                <div
+                    id="jokerVisual"
+                    class="table-card joker-card">
+                    -
+                </div>
+
+                <div
+                    id="stockCard"
+                    class="card-back clickable-pile">
+                </div>
+
             </div>
 
+            <!-- DECLARE BUTTON -->
+
+            <button
+                id="btnDeclare"
+                class="table-action-button declare-button"
+                type="button"
+                onclick="declareGame()">
+                Declare
+            </button>
+
+            <!-- DROP BUTTON -->
+
+            <button
+                id="dropBtn"
+                class="table-action-button drop-button"
+                type="button"
+                onclick="dropCurrentDeal()">
+                DROP
+            </button>
+
             <div id="declarationTimer"></div>
-          </div>
 
-          <div class="actions">
-            <button id="btnDiscard" type="button" onclick="discard()">Discard</button>
-            <button id="btnDeclare" type="button" onclick="declareGame()">Declare</button>
-          </div>
-        </section>
+        </div>
 
-        <section id="myPlayerPanel" class="my-player-panel">
+    </section>
+
+        <div
+          id="myPlayerPanel"
+          class="my-player-panel">
+
           <div class="my-player-details">
-            <div id="myInfo">You</div>
-            <div id="myScore">Score: 0</div>
-            <div id="dealScore">Deal Score: 0</div>
+
+              <div id="myInfo">
+                  You
+              </div>
+
+              <div id="myScore">
+                  Score : 0
+              </div>
+
+              <div id="dealScore">
+                  Deal Score : 0
+              </div>
+
+              <button
+                  id="btnDiscard"
+                  class="player-discard-button"
+                  type="button"
+                  onclick="discard()">
+                  Discard
+              </button>
+
           </div>
 
-          <button id="dropBtn" type="button" onclick="dropCurrentDeal()">DROP</button>
-          <div id="dropStatus" class="drop-status"></div>
-        </section>
+          <div
+              id="dropStatus"
+              class="drop-status">
+          </div>
+
+      </div>
 
         <section id="my-hand" class="hand" aria-label="My cards">
           <div class="group-box" id="group0"></div>

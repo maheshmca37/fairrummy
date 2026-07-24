@@ -184,17 +184,42 @@ button {
         0 0 50px rgba(0, 0, 0, 0.35);
 }
 /* TOP BAR */
+/* ========================================
+   TOP BAR
+======================================== */
+
 .topbar {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 0 18px;
-  background: #0d3b4f;
-  font-size: 16px;
-  font-weight: 700;
-  white-space: nowrap;
+    display: grid;
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    align-items: center;
+
+    width: 100%;
+    min-height: 40px;
+
+    padding: 0 14px;
+
+    background: #0d3b4f;
+    color: white;
+
+    font-size: 15px;
+    font-weight: 700;
+
+    box-sizing: border-box;
+}
+
+.topbar-item {
+    white-space: nowrap;
+}
+
+.topbar-item:nth-child(2),
+.topbar-item:nth-child(3) {
+    text-align: center;
+}
+
+.topbar-item:last-child {
+    text-align: right;
 }
 
 /* TABLE */
@@ -277,16 +302,76 @@ button {
   text-align: center;
 }
 
+/* ========================================
+   OPEN CARD / STOCK / ACTION LINE
+======================================== */
+
 .table-piles {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 84px;
-  min-height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    gap: 22px;
+
+    min-height: 115px;
+    margin: 0 0 8px;
+
+    position: relative;
 }
 
 .open-area {
-  text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right:20px;
+}
+
+.stock-area {
+    position: relative;
+
+    width: 120px;
+    height: 110px;
+
+    flex: 0 0 120px;
+}
+
+
+/* Buttons beside stock pile */
+
+.table-action-button {
+    min-width: 90px;
+    height: 42px;
+
+    padding: 0 16px;
+
+    border: none;
+    border-radius: 7px;
+
+    color: white;
+
+    font-size: 15px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.declare-button {
+    background: #1e90ff;
+}
+
+.declare-button:hover {
+    background: #4ba7ff;
+}
+
+.drop-button {
+    background: #dc3545;
+}
+
+.drop-button:hover {
+    background: #ed5261;
 }
 
 .table-card,
@@ -354,10 +439,19 @@ button {
 }
 
 #declarationTimer {
-  min-width: 130px;
-  font-size: 22px;
-  font-weight: 700;
-  text-align: center;
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+
+    transform: translateX(-50%);
+
+    margin: 0;
+
+    font-size: 18px;
+    font-weight: 800;
+    text-align: center;
+
+    white-space: nowrap;
 }
 
 .actions {
@@ -387,37 +481,74 @@ button {
 }
 
 /* MY PLAYER */
+/* ========================================
+   CURRENT PLAYER INFORMATION
+======================================== */
+
 .my-player-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  min-height: 0;
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    margin: 0 0 8px;
 }
 
 .my-player-details {
-  display: flex;
-  align-items: center;
-  gap: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 15px;
+
+    min-height: 42px;
 }
 
 #myInfo {
-  font-size: 18px;
-  font-weight: 700;
+    font-size: 18px;
+    font-weight: 800;
 }
 
 #myScore,
 #dealScore {
-  font-size: 15px;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.player-discard-button {
+    min-width: 90px;
+    height: 38px;
+
+    padding: 0 16px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: #1e90ff;
+    color: white;
+
+    font-size: 15px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.player-discard-button:hover {
+    background: #4ba7ff;
 }
 
 .drop-status {
-  display: none;
-  color: red;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
+    display: none;
+
+    margin-top: 4px;
+
+    color: #ff5252;
+
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
 }
 
 /* HAND */
@@ -454,7 +585,7 @@ button {
 }
 
 .card {
-    width: 54px;
+    width: 50px;
     height: 84px;
 
     background: white;

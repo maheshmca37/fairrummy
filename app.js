@@ -1674,6 +1674,7 @@ async function loadPlayers() {
             Number(state.dealerSeat)
         ) {
             icons += " 🎲";
+            document.getElementById("dealerName").textContent = player.display_name || "-";
         }
 
         let cardsDisplay = `
@@ -1702,7 +1703,7 @@ async function loadPlayers() {
                     break;
 
                 default:
-                    txt = "OUT";
+                    txt = "wait";
             }
 
             cardsDisplay = `
