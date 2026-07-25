@@ -650,8 +650,18 @@ button {
 }
 
 .selected {
-  border: 2px solid var(--gold);
-  transform: scale(1.08);
+
+    transform:
+        translateY(-22px)
+        scale(1.10);
+
+    box-shadow:
+        0 0 22px gold,
+        0 10px 18px rgba(0,0,0,.45);
+
+    z-index:999;
+
+    transition:.18s;
 }
 
 .red-card {
