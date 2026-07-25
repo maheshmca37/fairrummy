@@ -1596,6 +1596,7 @@ function startTurnTimer() {
 }
 
 async function loadPlayers() {
+    let dlr_name = "YOU";
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_get_lobby_players",
@@ -1668,13 +1669,15 @@ async function loadPlayers() {
         if (!target) return;
 
         let icons = "";
+        
+        
 
         if (
             Number(player.seat_no) ===
             Number(state.dealerSeat)
         ) {
             icons += " 🎲";
-            document.getElementById("dealerName").textContent = player.display_name || "-";
+            dlr_name = player.display_name;
         }
 
         let cardsDisplay = `
@@ -1719,7 +1722,7 @@ async function loadPlayers() {
             `;
         }
 
-
+        
         let statusHtml = "";
 
         if(player.player_status === "ELIMINATED")
@@ -1748,7 +1751,7 @@ async function loadPlayers() {
         ${statusHtml}
         `;
     });
-
+    document.getElementById("dealerName").textContent = dlr_name;
     let myIcons = "";
 
     if (
