@@ -52,6 +52,8 @@ let state = {
   eliminatedRefreshStarted : false,
   playerStatus : false,
   tableCompleted : false,
+  deal_no : null,
+  wildRank : null,
   dropType : null,
   myScore: null
 };
@@ -84,6 +86,36 @@ document.getElementById( "openVisual").onclick = () => {
 document.getElementById( "stockCard").onclick = () => {
  draw("stock");
 };
+
+
+document
+    .getElementById("btnHistory")
+    .addEventListener(
+        "click",
+        openHistoryPopup
+    );
+
+
+document
+    .getElementById("btnCloseHistory")
+    .addEventListener(
+        "click",
+        closeHistoryPopup
+    );
+
+document
+    .getElementById("historyPopup")
+    .addEventListener(
+        "click",
+        function(event) {
+
+            if (
+                event.target === this
+            ) {
+                closeHistoryPopup();
+            }
+        }
+    );
 
 // =========================
 // RENDER HAND
@@ -490,28 +522,6 @@ async function startNextDeal()
             // --------------------------------------------------
             // 1. PREPARE NEXT DEAL
             // --------------------------------------------------
-
-            const {
-                data: prepareData,
-                error: prepareError
-            } = await supabaseClient.rpc(
-                "crdg_prepare_next_deal",
-                {
-                    p_session_id: state.sessionId
-                }
-            );
-
-            if (prepareError)
-            {
-                console.error(
-                    "crdg_prepare_next_deal failed:",
-                    prepareError
-                );
-
-                state.ignoreResultWindow = false;
-                return;
-            }
-
         
 
             // --------------------------------------------------
@@ -542,12 +552,26 @@ async function startNextDeal()
                     ? queueData.length
                     : 0;
 
-            
 
-            // --------------------------------------------------
-            // 3. REBUILD TURN ORDER
-            // Only when rejoin queue contains players
-            // --------------------------------------------------
+                const {
+                    data: historyData,
+                    error: historyError
+                } = await supabaseClient.rpc(
+                    "crdg_save_deal_history",
+                    {
+                        p_session_id: state.sessionId,
+                        p_deal_no: state.deal_no
+                    }
+                );
+
+                if (historyError) {
+                    console.error(
+                        "crdg_save_deal_history ERROR:",
+                        historyError
+                    );
+
+                    return;
+                }
 
             if (rejoinCount > 0)
             {
@@ -577,9 +601,30 @@ async function startNextDeal()
             }
             else
             {
-                console.log(
-                    "No rejoin players. Turn-order rebuild skipped."
+                
+            }
+
+
+            const {
+                data: prepareData,
+                error: prepareError
+            } = await supabaseClient.rpc(
+                "crdg_prepare_next_deal",
+                {
+                    p_session_id: state.sessionId,
+                    p_skip_dealer_rotation: rejoinCount > 0
+                }
+            );
+
+            if (prepareError)
+            {
+                console.error(
+                    "crdg_prepare_next_deal failed:",
+                    prepareError
                 );
+
+                state.ignoreResultWindow = false;
+                return;
             }
 
             // --------------------------------------------------
@@ -678,6 +723,374 @@ async function startNextDeal()
             state.ignoreResultWindow = false;
         }
     }, 2500);
+}
+
+
+async function loadDealHistory() {
+
+    const tableHead =
+        document.getElementById("historyTableHead");
+
+    const tableBody =
+        document.getElementById("historyTableBody");
+
+    tableHead.innerHTML = "";
+
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="20" class="history-loading">
+                Loading history...
+            </td>
+        </tr>
+    `;
+
+    const {
+        data,
+        error
+    } = await supabaseClient.rpc(
+        "crdg_get_deal_history",
+        {
+            p_session_id: state.sessionId
+        }
+    );
+
+    if (error) {
+
+        console.error(
+            "crdg_get_deal_history ERROR:",
+            error
+        );
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="20" class="history-error">
+                    Unable to load history
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    renderDealHistory(
+        Array.isArray(data) ? data : []
+    );
+}
+function renderDealHistory(historyRows) {
+
+    const tableHead =
+        document.getElementById("historyTableHead");
+
+    const tableBody =
+        document.getElementById("historyTableBody");
+
+    tableHead.innerHTML = "";
+    tableBody.innerHTML = "";
+
+    if (!historyRows.length) {
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="20" class="history-no-data">
+                    No completed deal history available
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // 1. Build unique player list
+    // --------------------------------------------------
+
+    const playerMap = new Map();
+
+    historyRows.forEach(row => {
+
+        if (!playerMap.has(row.user_id)) {
+
+            playerMap.set(
+                row.user_id,
+                {
+                    userId: row.user_id,
+                    displayName:
+                        row.display_name || "Player",
+
+                    displayOrder:
+                        Number(row.display_order) || 999
+                }
+            );
+        }
+    });
+
+    const players =
+        Array.from(playerMap.values())
+            .sort(
+                (a, b) =>
+                    a.displayOrder - b.displayOrder
+            );
+
+
+    // --------------------------------------------------
+    // 2. Find all completed deal numbers
+    // --------------------------------------------------
+
+    const dealNumbers =
+        [
+            ...new Set(
+                historyRows.map(
+                    row => Number(row.deal_no)
+                )
+            )
+        ]
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+
+
+    // --------------------------------------------------
+    // 3. Build fast lookup:
+    // deal_no → user_id → history row
+    // --------------------------------------------------
+
+    const dealMap = new Map();
+
+    historyRows.forEach(row => {
+
+        const dealNo =
+            Number(row.deal_no);
+
+        if (!dealMap.has(dealNo)) {
+            dealMap.set(
+                dealNo,
+                new Map()
+            );
+        }
+
+        dealMap
+            .get(dealNo)
+            .set(
+                row.user_id,
+                row
+            );
+    });
+
+
+    // --------------------------------------------------
+    // 4. Create table header
+    // --------------------------------------------------
+
+    const headerRow =
+        document.createElement("tr");
+
+    const dealHeader =
+        document.createElement("th");
+
+    dealHeader.textContent = "Deal";
+
+    headerRow.appendChild(
+        dealHeader
+    );
+
+    players.forEach(player => {
+
+        const th =
+            document.createElement("th");
+
+        th.textContent =
+            player.displayName;
+
+        headerRow.appendChild(th);
+    });
+
+    tableHead.appendChild(
+        headerRow
+    );
+
+
+    // --------------------------------------------------
+    // 5. Create deal rows
+    // --------------------------------------------------
+
+    dealNumbers.forEach(dealNo => {
+
+        const tr =
+            document.createElement("tr");
+
+        const dealCell =
+            document.createElement("td");
+
+        dealCell.textContent =
+            dealNo;
+
+        tr.appendChild(
+            dealCell
+        );
+
+        players.forEach(player => {
+
+            const td =
+                document.createElement("td");
+
+            const row =
+                dealMap
+                    .get(dealNo)
+                    ?.get(player.userId);
+
+            if (!row) {
+
+                td.textContent = "--";
+
+                td.classList.add(
+                    "history-empty-cell"
+                );
+
+            } else {
+
+                const score =
+                    row.deal_score;
+
+                if (
+                    score === null ||
+                    score === undefined
+                ) {
+
+                    td.textContent = "--";
+
+                    td.classList.add(
+                        "history-empty-cell"
+                    );
+
+                } else {
+
+                    if (row.is_rejoined) {
+
+                        const symbol =
+                            document.createElement("span");
+
+                        symbol.className =
+                            "history-rejoin-symbol";
+
+                        symbol.textContent =
+                            `↺${row.rejoin_count}`;
+
+                        td.appendChild(symbol);
+
+                        td.appendChild(
+                            document.createTextNode(
+                                String(score)
+                            )
+                        );
+
+                        td.classList.add(
+                            "history-rejoined-cell"
+                        );
+
+                    } else {
+
+                        td.textContent =
+                            String(score);
+                    }
+                }
+            }
+
+            tr.appendChild(td);
+        });
+
+        tableBody.appendChild(tr);
+    });
+
+
+    // --------------------------------------------------
+    // 6. Add Total row
+    // --------------------------------------------------
+
+    const totalRow =
+        document.createElement("tr");
+
+    totalRow.className =
+        "history-total-row";
+
+    const totalLabel =
+        document.createElement("td");
+
+    totalLabel.textContent =
+        "Total";
+
+    totalRow.appendChild(
+        totalLabel
+    );
+
+    players.forEach(player => {
+
+        const td =
+            document.createElement("td");
+
+        const playerRows =
+            historyRows
+                .filter(
+                    row =>
+                        row.user_id ===
+                        player.userId
+                )
+                .sort(
+                    (a, b) =>
+                        Number(a.deal_no) -
+                        Number(b.deal_no)
+                );
+
+        const latestRow =
+            playerRows.length
+                ? playerRows[playerRows.length - 1]
+                : null;
+
+        if (!latestRow) {
+
+            td.textContent = "--";
+
+        } else {
+
+            td.textContent =
+                String(
+                    latestRow.total_score ?? 0
+                );
+        }
+
+        totalRow.appendChild(td);
+    });
+
+    tableBody.appendChild(
+        totalRow
+    );
+}
+
+function openHistoryPopup() {
+
+    const popup =
+        document.getElementById(
+            "historyPopup"
+        );
+
+    popup.classList.remove(
+        "hidden"
+    );
+
+    loadDealHistory();
+}
+
+
+function closeHistoryPopup() {
+
+    const popup =
+        document.getElementById(
+            "historyPopup"
+        );
+
+    popup.classList.add(
+        "hidden"
+    );
 }
 
 // =========================
@@ -1069,10 +1482,10 @@ async function showTableCompletedScreen(data)
 
 async function loadSessionInfo() {
 
-if(state.tableCompleted)
-{
-    return;
-}
+    if(state.tableCompleted)
+    {
+        return;
+    }
 
 
   const { data, error } =
@@ -1094,6 +1507,7 @@ if(state.tableCompleted)
         }
   state.dealerSeat = data.dealer_seat;
   state.currentTurnSeat = data.current_turn_seat;
+  state.deal_no = data.deal_no;
 
   await loadPlayers();
 
@@ -1125,6 +1539,7 @@ document.getElementById("jokerVisual").innerText =
   const jokerEl =
     document.getElementById("jokerVisual");
 
+
       jokerEl.classList.remove("red-card");
 
       if(
@@ -1135,6 +1550,7 @@ document.getElementById("jokerVisual").innerText =
       }
 
     state.jokerCard = data.joker_card;
+    state.wildRank  = data.wild_rank;
 
     state.declarationMode =
     data.declaration_started || false;
@@ -1359,31 +1775,7 @@ if(state.declarationMode){
 
 }
 
-
-function isJokerCard(card) {
-
-    if (card === "JOKER") {
-        return true;
-    }
-
-    if (!state.jokerCard) {
-        return false;
-    }
-
-    const jokerRank =
-        state.jokerCard.replace(
-            /[♠♥♦♣]/g,
-            ""
-        );
-
-    const cardRank =
-        card.replace(
-            /[♠♥♦♣]/g,
-            ""
-        );
-
-    return jokerRank === cardRank;
-}
+  
 
 
 // =========================
@@ -1680,6 +2072,11 @@ async function loadPlayers() {
             dlr_name = player.display_name;
         }
 
+        // Show rejoin icon
+        if (Number(player.rejoin_count) > 0) {
+            icons += ` ↺${player.rejoin_count}`;
+        }
+
         let cardsDisplay = `
         <div style="font-size:24px;">
             🂠🂠🂠🂠🂠
@@ -1843,10 +2240,10 @@ document.getElementById("lobbyTimer").innerText =  remaining > 0 ? remaining : 0
 
 const { data: players } =
 await supabaseClient.rpc(
-  "crdg_get_lobby_players",
-  {
-    p_table_id: state.tableId
-  }
+    "crdg_get_lobby_players",
+    {
+        p_table_id: state.tableId
+    }
 );
 
 for(let i = 1; i <= 6; i++) {
@@ -2393,6 +2790,27 @@ async function loadDealResults()
     ).style.display = "block";
 }
 
+
+function isJokerCard(card) {
+
+    // Printed Joker
+    if (card === "JOKER") {
+        return true;
+    }
+
+    if (!state.wildRank) {
+        return false;
+    }
+
+    const cardRank =
+        card.replace(
+            /[♠♥♦♣]/g,
+            ""
+        );
+
+    return cardRank === state.wildRank;
+}
+
 function showReJoinWindow(player)
 {
 
@@ -2489,7 +2907,7 @@ function showReJoinWindow(player)
         document.getElementById('btnReJoin').innerText = 'ReJoined';
         document.getElementById('btnReJoin').style.background = '#2e7d32';
 
-        console.log('Player added to rejoin queue');
+       
 
     };
 

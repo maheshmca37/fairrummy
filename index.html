@@ -9,6 +9,7 @@
   <meta name="theme-color" content="#06121a">
   <title>CRDG Rummy</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="history.css">
 </head>
 <body>
 
@@ -59,6 +60,7 @@
         <div class="topbar-item"> Dealer : <span id="dealerName">-</span></div>
 
         <div>Current Turn: <span id="currentTurnPlayer">-</span></div>
+       <div><button id="btnHistory">History</button> </div>
         <div>⏱ Turn Timer: <span id="turnTimer">40</span></div>
       </header>
 
@@ -208,14 +210,7 @@
       <div id="dealResultsContainer"></div>
     </div>
   </section>
-
-  <!-- HISTORY -->
-  <section id="historyCard" class="history-card hidden">
-    <h3>🧾 Last Game Summary</h3>
-    <div id="historyContent"></div>
-    <button type="button" onclick="closeHistory()">Close</button>
-  </section>
-
+  
   <!-- TABLE COMPLETED -->
   <section id="tableCompletedScreen">
     <div class="winner-card">
@@ -238,6 +233,42 @@
       <p>Thank you for playing</p>
     </div>
   </section>
+
+  <div id="historyPopup" class="history-popup hidden">
+
+    <div class="history-popup-box">
+
+        <div class="history-popup-header">
+
+            <div class="history-popup-title">
+                Deal History
+            </div>
+
+            <button
+                id="btnCloseHistory"
+                class="history-close-btn"
+                type="button"
+            >
+                ✕
+            </button>
+
+        </div>
+
+        <div class="history-table-wrapper">
+
+            <table id="historyTable">
+
+                <thead id="historyTableHead"></thead>
+
+                <tbody id="historyTableBody"></tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="app.js"></script>
