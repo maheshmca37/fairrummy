@@ -21,6 +21,7 @@ let state = {
   userId: null,
   nickname: null,
   seatNo: null,
+  fixedSeatNo: null,
   joined: false,
   hand: [],
   groups : [
@@ -1479,37 +1480,59 @@ async function showTableCompletedScreen(data)
     }
 
 }
-
 async function loadSessionInfo() {
 
-    if(state.tableCompleted)
-    {
+    if (state.tableCompleted) {
         return;
     }
 
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_game_sessions")
+            .select("*")
+            .eq("session_id", state.sessionId)
+            .single();
 
-  const { data, error } =
-    await supabaseClient
-      .from("crdg_game_sessions")
-      .select("*")
-      .eq("session_id", state.sessionId)
-      .single();
+    if (error) {
+        console.error(error);
+        return;
+    }
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+    if (data.game_completed) {
+        handleTableCompleted(data);
+        return;
+    }
 
-        if (data.game_completed)
-        {
-            handleTableCompleted(data);
-            return;
-        }
-  state.dealerSeat = data.dealer_seat;
-  state.currentTurnSeat = data.current_turn_seat;
-  state.deal_no = data.deal_no;
+    state.dealerSeat = Number(data.dealer_seat);
+    state.currentTurnSeat = Number(data.current_turn_seat);
+    state.deal_no = data.deal_no;
 
-  await loadPlayers();
+    // Refresh my dynamic seat after rejoin/rebuild
+    const { data: players, error: playersError } =
+        await supabaseClient.rpc(
+            "crdg_get_lobby_players",
+            {
+                p_table_id: state.tableId
+            }
+        );
+
+    if (playersError) {
+        console.error(playersError);
+        return;
+    }
+
+    const me = players?.find(
+        player =>
+            Number(player.fixed_seat_no) ===
+            Number(state.fixedSeatNo)
+    );
+
+    if (me) {
+        state.seatNo = Number(me.seat_no);
+    }
+
+    await loadPlayers();
+
 
   state.turnStartedAt =    new Date(
         data.turn_started_at
@@ -1937,6 +1960,7 @@ async function joinTable() {
   state.tableId = parseInt(tableId);
   state.nickname = nickname;
   state.seatNo = data[0].seat_no;
+  state.fixedSeatNo = data[0].seat_no;
   state.joined = true;
 
   localStorage.setItem("crdg_table", tableId);
@@ -2018,16 +2042,15 @@ async function loadPlayers() {
     data.forEach(player => {
 
         if (
-            Number(player.seat_no) ===
-            Number(state.seatNo)
+            Number(player.fixed_seat_no) === Number(state.fixedSeatNo)
         ) {
             state.myScore = player.points || 0;
             return;
         }
 
         let relative =
-            Number(player.seat_no) -
-            Number(state.seatNo);
+            Number(player.fixed_seat_no) -
+            Number(state.fixedSeatNo);
 
         if (relative < 0) {
             relative += 6;
