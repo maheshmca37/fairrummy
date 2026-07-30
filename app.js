@@ -154,7 +154,8 @@ function renderHand() {
         }
 
     document.getElementById("dropBtn").disabled    = state.isDropped;
-
+    
+    showBaseTableHand();
 
     for(let g = 0; g < 5; g++) {
 
@@ -384,42 +385,95 @@ function renderHand() {
 
 }
 
+function hideBaseTableHand() {
 
-async function startObservationTimer()
-{
+    for (let g = 0; g < 5; g++) {
+
+        const groupEl =
+            document.getElementById(
+                "group" + g
+            );
+
+        if (groupEl) {
+            groupEl.style.visibility =
+                "hidden";
+        }
+    }
+}
+
+function showBaseTableHand() {
+
+    for (let g = 0; g < 5; g++) {
+
+        const groupEl =
+            document.getElementById(
+                "group" + g
+            );
+
+        if (groupEl) {
+            groupEl.style.visibility =
+                "visible";
+        }
+    }
+}
 
 
-    observationTimeRemaining = 30;
 
-    document.getElementById(
-        "observationTimer"
-    ).innerText =
-        observationTimeRemaining;
+function startObservationTimer() {
 
-    state.observationTimerInterval =
-        setInterval(async () =>
-    {
-        
+    clearInterval(
+        state.observationTimerInterval
+    );
 
-        observationTimeRemaining--;
-       
+    function updateObservationTimer() {
+
+        if(!state.observationEndAt){
+            return;
+        }
+
+        const endTime =
+            new Date(
+                state.observationEndAt
+            ).getTime();
+
+        const seconds =
+            Math.max(
+                0,
+                Math.ceil(
+                    (endTime - Date.now()) / 1000
+                )
+            );
 
         document.getElementById(
             "observationTimer"
         ).innerText =
-            observationTimeRemaining;
+            "Observation (" +
+            seconds +
+            "s)";
 
-        if(observationTimeRemaining <= 0)
-        {
+        if(seconds <= 0){
+
             clearInterval(
                 state.observationTimerInterval
             );
 
-            await onObservationTimerExpired();
-        }
+            state.observationTimerInterval =
+                null;
 
-    }, 1000);
+            onObservationTimerExpired();
+        }
+    }
+
+    updateObservationTimer();
+
+    state.observationTimerInterval =
+        setInterval(
+            updateObservationTimer,
+            250
+        );
 }
+
+
 async function onObservationTimerExpired()
 {
     document.getElementById(
@@ -1258,43 +1312,61 @@ let sessionRefreshPending = false;
 // REALTIME
 function subscribeRealtime() {
 
-  if (!state.sessionId) return;
+    if (!state.sessionId) return;
 
-  supabaseClient
-    .channel(
-      "game-session-" +
-      state.sessionId
-    )
-    .on(
-  "postgres_changes",
-  {
-    event: "*",
-    schema: "public",
-    table: "crdg_game_sessions"
-  },
-  (payload) => {
+    supabaseClient
+        .channel(
+            "game-session-" + state.sessionId
+        )
+        .on(
+            "postgres_changes",
+            {
+                event: "*",
+                schema: "public",
+                table: "crdg_game_sessions",
+                filter:
+                    "session_id=eq." +
+                    state.sessionId
+            },
+            () => {
 
-   if(sessionRefreshPending)
-        return;
-     
-     sessionRefreshPending = true;
+                if (sessionRefreshPending) {
+                    return;
+                }
 
-      setTimeout(async () => {
+                sessionRefreshPending = true;
 
-        await loadSessionInfo();
+                setTimeout(async () => {
 
-        updateActionButtons();
+                    try {
 
-        sessionRefreshPending = false;
+                        await loadSessionInfo();
 
-    }, 500);
-  }
-)
-    .subscribe((status) => {
+                        updateActionButtons();
 
-    
+                    } catch (error) {
 
-});
+                        console.error(
+                            "Realtime session refresh error:",
+                            error
+                        );
+
+                    } finally {
+
+                        sessionRefreshPending = false;
+                    }
+
+                }, 500);
+            }
+        )
+        .subscribe(status => {
+
+            console.log(
+                "Game session realtime:",
+                status
+            );
+
+        });
 }
 
 async function handleTableCompleted(data)
@@ -1506,6 +1578,8 @@ async function loadSessionInfo() {
     state.dealerSeat = Number(data.dealer_seat);
     state.currentTurnSeat = Number(data.current_turn_seat);
     state.deal_no = data.deal_no;
+    state.declarationEndAt =  data.declaration_end_at;
+    state.observationEndAt =  data.observation_end_at;
 
     // Refresh my dynamic seat after rejoin/rebuild
     const { data: players, error: playersError } =
@@ -1588,9 +1662,33 @@ document.getElementById("jokerVisual").innerText =
               state.turnTimerInterval
           );
 
-          state.declarationTimerStarted =  true;
+              
+            const { data: declarationEndAt, error: dectmrerror } =
+            await supabaseClient.rpc(
+                "crdg_start_declaration_timer",
+                {
+                    p_session_id: state.sessionId,
+                    p_user_id: state.userId
+                }
+            );
 
-          startDeclarationTimer();
+        if (dectmrerror) {
+            console.error(
+                "Declaration timer start error:",
+                dectmrerror
+            );
+            return;
+        }
+        
+        state.declarationEndAt = declarationEndAt;
+        state.declarationTimerStarted =  true;
+
+        if (
+            state.declarationEndAt &&
+            !state.declarationTimerInterval
+        ) {
+            startDeclarationTimer();
+        }
 
       }
 
@@ -1617,53 +1715,102 @@ document.getElementById("jokerVisual").innerText =
             state.resultWindowOpened = true;
 
             loadDealResults();
-            startObservationTimer();
+
+            const {
+                data: observationEndAt,
+                error: obstmrerror
+            } =
+            await supabaseClient.rpc(
+                "crdg_start_observation_timer",
+                {
+                    p_session_id: state.sessionId
+                }
+            );
+
+            if(obstmrerror){
+                console.error(obstmrerror);
+                return;
+            }
+
+            state.observationEndAt =
+                observationEndAt;
+
+            if(
+                state.observationEndAt &&
+                !state.observationTimerInterval
+            ){
+                startObservationTimer();
+            }
         }
 
    updateActionButtons();
    
 }
 
+function startDeclarationTimer() {
 
-function startDeclarationTimer(){
+    clearInterval(
+        state.declarationTimerInterval
+    );
 
-    const endTime =
-        Date.now() + 40000;
+    function updateDeclarationTimer() {
 
-    state.declarationTimerInterval =
-        setInterval(() => {
+        if (!state.declarationEndAt) {
+            document.getElementById(
+                "declarationTimer"
+            ).innerText = "";
+            return;
+        }
+
+        const endTime =
+            new Date(
+                state.declarationEndAt
+            ).getTime();
 
         const seconds =
             Math.max(
                 0,
-                Math.floor(
-                    (endTime - Date.now())
-                    / 1000
+                Math.ceil(
+                    (endTime - Date.now()) / 1000
                 )
             );
 
         document.getElementById(
-          "declarationTimer"
-      ).innerText =
-          "Declared..Arrange Cards (" +
-          seconds +
-          "s)";
+            "declarationTimer"
+        ).innerText =
+            "Declared..Arrange Cards (" +
+            seconds +
+            "s)";
 
-        if(seconds <= 0){
+        if (seconds <= 0) {
 
             clearInterval(
                 state.declarationTimerInterval
             );
-            
-           document.getElementById("declarationTimer").innerText ='';
+
+            state.declarationTimerInterval =
+                null;
+
+            document.getElementById(
+                "declarationTimer"
+            ).innerText = "";
+
             onDeclarationTimerExpired();
-
         }
+    }
 
-    }, 1000);
+    updateDeclarationTimer();
+
+    state.declarationTimerInterval =
+        setInterval(
+            updateDeclarationTimer,
+            250
+        );
 }
 
 async function onDeclarationTimerExpired(){
+
+    hideBaseTableHand();
 
     const { data, error } =
         await supabaseClient.rpc(
