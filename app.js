@@ -35,6 +35,12 @@ let state = {
   jokerCard:null,
   lobbyTimerHandle: null,
   turnStartedAt:null,
+  turnEndAt:null,
+  lastProcessedTurnEndAt: null,
+  lastHandledTimeoutEvent : null,
+  turnTimeoutProcessing: false,
+  turnServerNowMs: null,
+  turnServerSyncPerfMs: null,
   lastTurnSeat: null,
   dragCard: null,
   currentTurnSeat: null,
@@ -56,7 +62,11 @@ let state = {
   deal_no : null,
   wildRank : null,
   dropType : null,
-  myScore: null
+  myScore: null,
+  settlementEligible: false,
+  settlementId: null,
+  settlementOpened: false,
+  participatedInDeal : false
 };
 
 let savedUserId =
@@ -487,6 +497,48 @@ async function onObservationTimerExpired()
 }
 
 
+function resetSettlementControls() {
+
+    const acceptBtn =
+        document.getElementById(
+            "btnSettlementAccept"
+        );
+
+    const cancelBtn =
+        document.getElementById(
+            "btnSettlementCancel"
+        );
+
+    const statusEl =
+        document.getElementById(
+            "settlementStatus"
+        );
+
+    const popup =
+        document.getElementById(
+            "settlementPopup"
+        );
+
+    if (acceptBtn) {
+        acceptBtn.disabled = false;
+    }
+
+    if (cancelBtn) {
+        cancelBtn.disabled = false;
+    }
+
+    if (statusEl) {
+        statusEl.innerText = "";
+    }
+
+    if (popup) {
+        popup.style.display = "none";
+    }
+
+    state.settlementOpened = false;
+    state.settlementId = null;
+}
+
 async function startNextDeal()
 {
     if (state.tableCompleted)
@@ -494,6 +546,7 @@ async function startNextDeal()
         return;
     }
 
+    closeSettlementPopup();
     // --------------------------------------------------
     // ELIMINATED PLAYER
     // They do not start the next deal,
@@ -1157,7 +1210,27 @@ async function draw(source) {
   if(state.declarationMode){
 
     return;
-}
+   }
+
+   
+
+    if (
+        Number(state.seatNo) !==
+        Number(state.currentTurnSeat)
+    ) {
+        alert("Please wait. It is another player's turn.");
+        return;
+    }
+
+    const cardCount = getTotalCards();
+
+    if (cardCount !== 13) {
+        alert("You have already picked a card. Please discard or declare.");
+        return;
+    }
+
+    // existing draw code...
+
 
   const { data, error } = await supabaseClient.rpc("crdg_draw_card", {
     p_session_id: state.sessionId,
@@ -1201,6 +1274,27 @@ async function draw(source) {
 
 async function dropCurrentDeal()
 {
+
+
+    
+
+    if (
+        Number(state.seatNo) !==
+        Number(state.currentTurnSeat)
+    ) {
+        alert("You can drop only during your turn.");
+        return;
+    }
+
+    const cardCount = getTotalCards();
+
+    if (cardCount !== 13) {
+        alert("You cannot drop after picking a card. Please discard or declare.");
+        return;
+    }
+
+    // existing drop code...
+
     
     const msg = "Are you sure you want to DROP?";
     if (!confirm(msg))
@@ -1235,12 +1329,36 @@ async function dropCurrentDeal()
 // DISCARD
 // =========================
 async function discard() {
+     
 
     if (!state.sessionId) return;
     if(state.declarationMode){
+     return;
+    }
 
-    return;
-}
+   
+
+    if (
+        Number(state.seatNo) !==
+        Number(state.currentTurnSeat)
+    ) {
+        alert("Please wait. It is another player's turn.");
+        return;
+    }
+
+    const cardCount = getTotalCards();
+
+    if (cardCount !== 14) {
+        alert("Please pick a card before discarding.");
+        return;
+    }
+
+    if (!state.selectedCard) {
+        alert("Please select a card to discard.");
+        return;
+    }
+
+    // existing discard code...
 
     const totalCards =
         state.groups.reduce(
@@ -1295,6 +1413,24 @@ async function discard() {
 
         state.selectedCard = null;
 
+            // Stop the completed turn timer immediately
+        clearInterval(state.turnTimerInterval);
+        state.turnTimerInterval = null;
+
+        document.getElementById(
+            "turnTimer"
+        ).innerText = "0";
+
+        // Clear old card selection
+        state.selectedCard = null;
+        state.dragCard = null;
+
+        // Load the new turn and its new central timer
+       // await loadGame();
+        await loadSessionInfo();
+
+        updateActionButtons();
+
         renderHand();
         calculateDealScore();
 
@@ -1308,15 +1444,16 @@ async function discard() {
 
 let sessionRefreshPending = false;
 
-// =========================
-// REALTIME
 function subscribeRealtime() {
 
-    if (!state.sessionId) return;
+    if (!state.sessionId) {
+        return;
+    }
 
     supabaseClient
         .channel(
-            "game-session-" + state.sessionId
+            "game-session-" +
+            state.sessionId
         )
         .on(
             "postgres_changes",
@@ -1328,7 +1465,31 @@ function subscribeRealtime() {
                     "session_id=eq." +
                     state.sessionId
             },
-            () => {
+            (payload) => {
+
+                console.log(
+                    "SESSION REALTIME RECEIVED:",
+                    {
+                        currentTurn:
+                            payload.new?.current_turn_seat,
+
+                        turnEndAt:
+                            payload.new?.turn_end_at,
+
+                        dealNo:
+                            payload.new?.deal_no,
+
+                        declarationStarted:
+                            payload.new?.declaration_started,
+
+                        dealResultsReady:
+                            payload.new?.deal_results_ready
+                    }
+                );
+
+                // ------------------------------------------
+                // Avoid overlapping refreshes
+                // ------------------------------------------S
 
                 if (sessionRefreshPending) {
                     return;
@@ -1340,29 +1501,45 @@ function subscribeRealtime() {
 
                     try {
 
+                        // ----------------------------------
+                        // This loads authoritative session:
+                        // dealer
+                        // current turn
+                        // turn_end_at
+                        // declaration state
+                        // observation/result state
+                        // dynamic seat
+                        // players
+                        // ----------------------------------
+
                         await loadSessionInfo();
 
+                        // Normally loadSessionInfo already
+                        // calls this, but keeping once here
+                        // is safe.
                         updateActionButtons();
 
-                    } catch (error) {
+                    }
+                    catch (error) {
 
                         console.error(
                             "Realtime session refresh error:",
                             error
                         );
 
-                    } finally {
+                    }
+                    finally {
 
                         sessionRefreshPending = false;
                     }
 
-                }, 500);
+                }, 300);
             }
         )
-        .subscribe(status => {
+        .subscribe((status) => {
 
             console.log(
-                "Game session realtime:",
+                "SESSION REALTIME STATUS:",
                 status
             );
 
@@ -1384,6 +1561,7 @@ async function handleTableCompleted(data)
     clearInterval(
         state.turnTimerInterval
     );
+    state.turnTimerInterval = null; //MAH
 
     clearInterval(
         state.observationTimerInterval
@@ -1457,88 +1635,225 @@ async function handleTableCompleted(data)
 
 async function showTableCompletedScreen(data)
 {
-
-
-    const {
-        data: resultData,
-        error
-    } =
-    await supabaseClient.rpc(
-        "crdg_get_table_final_result",
-        {
-            p_session_id: state.sessionId
-        }
-    );
-
-
-    if(error)
-    {
-        console.error(
-            "Final result error:",
-            error
-        );
-
-        return;
-    }
-
     const tbody =
         document.getElementById(
             "finalScoreBody"
         );
 
+    if (!tbody) {
+        return;
+    }
 
     tbody.innerHTML = "";
 
 
-    resultData.forEach(
-        player =>
-        {
+    // ==================================================
+    // SETTLEMENT COMPLETION
+    // ==================================================
 
-            const tr =
-                document.createElement(
-                    "tr"
-                );
-
-
-            if(player.is_winner)
+    if (
+        data.completion_type ===
+        "SETTLEMENT"
+    )
+    {
+        const {
+            data: settlementData,
+            error: settlementError
+        } =
+        await supabaseClient.rpc(
+            "crdg_get_settlement_final_result",
             {
-                tr.classList.add(
-                    "winner-row"
-                );
+                p_session_id:
+                    state.sessionId
             }
+        );
 
 
-            tr.innerHTML =
+        if (settlementError)
+        {
+            console.error(
+                "Settlement final result error:",
+                settlementError
+            );
 
-            `
-            <td>
-                ${
-                    player.is_winner
-                    ? "🏆 "
-                    : ""
-                }
-                ${player.display_name}
-            </td>
-
-            <td>
-                ${player.final_score}
-            </td>
-
-            <td>
-                ${
-                    player.is_winner
-                    ? "WINNER"
-                    : "PLAYER"
-                }
-            </td>
-            `;
-
-
-            tbody.appendChild(tr);
-
+            return;
         }
-    );
 
+
+        if (
+            settlementData &&
+            settlementData.length > 0
+        )
+        {
+            settlementData.forEach(
+                player =>
+                {
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+
+                    tr.classList.add(
+                        "winner-row"
+                    );
+
+
+                    tr.innerHTML =
+                    `
+                    <td>
+                        🏆 ${player.display_name}
+                    </td>
+
+                    <td>
+                        ${player.final_score}
+                    </td>
+
+                    <td>
+                        WINNER - ${player.settlement_percentage}%
+                    </td>
+                    `;
+
+
+                    tbody.appendChild(
+                        tr
+                    );
+                }
+            );
+        }
+        else
+        {
+            console.warn(
+                "No settlement final result found"
+            );
+        }
+    }
+
+
+    // ==================================================
+    // NORMAL TABLE COMPLETION
+    // ==================================================
+
+    else
+    {
+        const {
+            data: resultData,
+            error
+        } =
+        await supabaseClient.rpc(
+            "crdg_get_table_final_result",
+            {
+                p_session_id:
+                    state.sessionId
+            }
+        );
+
+
+        if(error)
+        {
+            console.error(
+                "Final result error:",
+                error
+            );
+
+            return;
+        }
+
+
+        if (
+            resultData &&
+            resultData.length > 0
+        )
+        {
+            resultData.forEach(
+                player =>
+                {
+                    const tr =
+                        document.createElement(
+                            "tr"
+                        );
+
+
+                    if(player.is_winner)
+                    {
+                        tr.classList.add(
+                            "winner-row"
+                        );
+                    }
+
+
+                    tr.innerHTML =
+                    `
+                    <td>
+                        ${
+                            player.is_winner
+                            ? "🏆 "
+                            : ""
+                        }
+
+                        ${player.display_name}
+                    </td>
+
+                    <td>
+                        ${player.final_score}
+                    </td>
+
+                    <td>
+                        ${
+                            player.is_winner
+                            ? "WINNER"
+                            : "PLAYER"
+                        }
+                    </td>
+                    `;
+
+
+                    tbody.appendChild(
+                        tr
+                    );
+                }
+            );
+        }
+        else
+        {
+            console.warn(
+                "No normal final result found"
+            );
+        }
+    }
+
+
+    // ==================================================
+    // CLOSE OTHER POPUPS / MODALS
+    // ==================================================
+
+    const settlementPopup =
+        document.getElementById(
+            "settlementPopup"
+        );
+
+    if (settlementPopup)
+    {
+        settlementPopup.style.display =
+            "none";
+    }
+
+
+    const dealResultModal =
+        document.getElementById(
+            "dealResultModal"
+        );
+
+    if (dealResultModal)
+    {
+        dealResultModal.style.display =
+            "none";
+    }
+
+
+    // ==================================================
+    // SHOW TABLE COMPLETION SCREEN
+    // ==================================================
 
     const screen =
         document.getElementById(
@@ -1548,10 +1863,12 @@ async function showTableCompletedScreen(data)
 
     if(screen)
     {
-        screen.style.display = "flex";
+        screen.style.display =
+            "flex";
     }
-
 }
+
+
 async function loadSessionInfo() {
 
     if (state.tableCompleted) {
@@ -1580,6 +1897,23 @@ async function loadSessionInfo() {
     state.deal_no = data.deal_no;
     state.declarationEndAt =  data.declaration_end_at;
     state.observationEndAt =  data.observation_end_at;
+
+
+    if (
+            data.last_event_type === "TURN_TIMEOUT" &&
+            data.last_event_user_id === state.userId &&
+            data.last_event_time &&
+            state.lastHandledTimeoutEvent !== data.last_event_time
+        ) {
+            state.lastHandledTimeoutEvent =
+                data.last_event_time;
+
+            await loadGame();
+
+            renderHand();
+
+            updateActionButtons();
+        }
 
     // Refresh my dynamic seat after rejoin/rebuild
     const { data: players, error: playersError } =
@@ -1611,6 +1945,8 @@ async function loadSessionInfo() {
   state.turnStartedAt =    new Date(
         data.turn_started_at
     ).getTime();
+
+    state.turnEndAt = data.turn_end_at;
 
  
     const topOpenCard =
@@ -1661,6 +1997,7 @@ document.getElementById("jokerVisual").innerText =
           clearInterval(
               state.turnTimerInterval
           );
+          state.turnTimerInterval = null; //MAH
 
               
             const { data: declarationEndAt, error: dectmrerror } =
@@ -1698,10 +2035,20 @@ document.getElementById("jokerVisual").innerText =
         
         if (
             state.playerStatus !== "ELIMINATED" &&
-            state.lastTurnSeat !== data.current_turn_seat
-        )
-        {
-            state.lastTurnSeat = data.current_turn_seat;
+            data.deal_results_ready !== true &&
+            !state.resultWindowOpened &&
+            !state.declarationMode &&
+            state.turnEndAt &&
+            (
+                state.lastTurnSeat !== data.current_turn_seat ||
+                !state.turnTimerInterval
+            )
+        ) {
+            state.lastTurnSeat =
+                data.current_turn_seat;
+
+            await syncTurnClock();
+
             startTurnTimer();
         }
 
@@ -1709,12 +2056,27 @@ document.getElementById("jokerVisual").innerText =
         if (
             data.deal_results_ready === true &&
             !state.resultWindowOpened &&
+            state.participatedInDeal === true &&
             !state.ignoreResultWindow
         )
         {
+            clearInterval(state.turnTimerInterval);
+            state.turnTimerInterval = null;
+
+            document.getElementById(
+                "turnTimer"
+            ).innerText = "-";
+
+
             state.resultWindowOpened = true;
 
+            hideBaseTableHand();
+
+            resetSettlementControls();
+
             loadDealResults();
+
+            await checkSettlementEligibility();
 
             const {
                 data: observationEndAt,
@@ -1745,6 +2107,50 @@ document.getElementById("jokerVisual").innerText =
 
    updateActionButtons();
    
+}
+
+async function loadAcceptedSettlement()
+{
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_settlement")
+            .select(`
+                player1_user_id,
+                player2_user_id,
+                player1_percentage,
+                player2_percentage,
+                player1_score,
+                player2_score,
+                status
+            `)
+            .eq(
+                "session_id",
+                state.sessionId
+            )
+            .eq(
+                "status",
+                "ACCEPTED"
+            )
+            .order(
+                "settlement_id",
+                {
+                    ascending: false
+                }
+            )
+            .limit(1)
+            .maybeSingle();
+
+    if (error)
+    {
+        console.error(
+            "Settlement result error:",
+            error
+        );
+
+        return null;
+    }
+
+    return data;
 }
 
 function startDeclarationTimer() {
@@ -1808,6 +2214,118 @@ function startDeclarationTimer() {
         );
 }
 
+
+async function openSettlement() {
+
+    if (!state.settlementEligible) {
+        return;
+    }
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_create_settlement_proposal",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+    if (error) {
+
+        console.error(
+            "Settlement proposal error:",
+            error
+        );
+
+        alert(
+            "Unable to create settlement proposal."
+        );
+
+        return;
+    }
+
+    const proposal = data?.[0];
+
+    if (!proposal) {
+        return;
+    }
+
+    state.settlementId =
+        proposal.settlement_id;
+
+    state.settlementOpened = true;
+
+    document.getElementById(
+            "settlementPlayers"
+        ).innerHTML = `
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                padding:10px;
+                font-size:18px;
+                border-bottom:1px solid #ddd;
+            ">
+                <b>${proposal.player1_name}</b>
+
+                <span style="
+                color:#000000;
+                font-weight:bold;
+            ">
+                ${proposal.player1_percentage}%
+            </span>
+            </div>
+
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                padding:10px;
+                font-size:18px;
+            ">
+                <b>${proposal.player2_name}</b>
+
+                <span style="
+                color:#000000;
+                font-weight:bold;
+            ">
+                ${proposal.player2_percentage}%
+            </span>
+            </div>
+        `;
+
+    document.getElementById(
+        "settlementStatus"
+    ).innerText = "";
+
+    document.getElementById(
+        "settlementPopup"
+    ).style.display = "block";
+}
+
+
+function closeSettlementPopup() {
+
+    const popup =
+        document.getElementById(
+            "settlementPopup"
+        );
+
+    if (popup) {
+        popup.style.display = "none";
+    }
+
+    const status =
+        document.getElementById(
+            "settlementStatus"
+        );
+
+    if (status) {
+        status.innerText = "";
+    }
+
+    state.settlementOpened = false;
+    state.settlementId = null;
+    state.settlementEligible = false;
+}
+
 async function onDeclarationTimerExpired(){
 
     hideBaseTableHand();
@@ -1841,6 +2359,151 @@ async function onDeclarationTimerExpired(){
     }
 }
 
+async function respondSettlement(response) {
+
+    if (!state.sessionId || !state.userId) {
+        return;
+    }
+
+    const acceptBtn =
+        document.getElementById(
+            "btnSettlementAccept"
+        );
+
+    const cancelBtn =
+        document.getElementById(
+            "btnSettlementCancel"
+        );
+
+    // Prevent double-clicks
+    acceptBtn.disabled = true;
+    cancelBtn.disabled = true;
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient.rpc(
+            "crdg_respond_settlement",
+            {
+                p_session_id:
+                    state.sessionId,
+
+                p_user_id:
+                    state.userId,
+
+                p_response:
+                    response
+            }
+        );
+
+        if (error) {
+
+            console.error(
+                "Settlement response error:",
+                error
+            );
+
+            acceptBtn.disabled = false;
+            cancelBtn.disabled = false;
+
+            return;
+        }
+
+        const result =
+            data?.[0];
+
+        if (!result) {
+
+            acceptBtn.disabled = false;
+            cancelBtn.disabled = false;
+            return;
+        }
+
+        console.log(
+            "SETTLEMENT RESPONSE:",
+            result
+        );
+
+
+        // ------------------------------------------
+        // CANCEL
+        // ------------------------------------------
+
+        if (
+            result.status ===
+            "CANCELLED"
+        ) {
+
+            document.getElementById(
+                "settlementStatus"
+            ).innerText =
+                "Settlement cancelled";
+
+            setTimeout(() => {
+
+                document.getElementById(
+                    "settlementPopup"
+                ).style.display =
+                    "none";
+
+            }, 700);
+
+            return;
+        }
+
+
+        // ------------------------------------------
+        // BOTH ACCEPTED
+        // ------------------------------------------
+
+        if (
+            result.status ===
+            "ACCEPTED"
+        ) {
+
+            document.getElementById(
+                "settlementStatus"
+            ).innerText =
+                "Settlement accepted";
+
+            return;
+        }
+
+
+        // ------------------------------------------
+        // ONE PLAYER ACCEPTED
+        // ------------------------------------------
+
+        if (
+            result.status ===
+            "PENDING"
+        ) {
+
+            document.getElementById(
+                "settlementStatus"
+            ).innerText =
+                "Accepted — waiting for other player";
+
+            // This player has already accepted.
+            // Do not allow changing response.
+            acceptBtn.disabled = true;
+            cancelBtn.disabled = true;
+        }
+
+    }
+    catch (error) {
+
+        console.error(
+            "Settlement unexpected error:",
+            error
+        );
+
+        acceptBtn.disabled = false;
+        cancelBtn.disabled = false;
+    }
+}
 
 function getTotalCards(){
 
@@ -1858,26 +2521,67 @@ function getTotalCards(){
     return total;
 }
 
-function updateActionButtons(){
+function updateActionButtons() {
+
+    const btnDiscard =
+        document.getElementById("btnDiscard");
+
+    const btnDeclare =
+        document.getElementById("btnDeclare");
+
+    const btnDrop =
+        document.getElementById("dropBtn");
+
+    const openPile =
+        document.getElementById("openVisual");
+
+    const stockPile =
+        document.getElementById("stockCard");
 
 
-    if (state.playerStatus === "ELIMINATED") {
+    // --------------------------------------------------
+    // Eliminate / dropped / declaration mode
+    // --------------------------------------------------
 
-    document.getElementById("btnDiscard").disabled = true;
-    document.getElementById("btnDeclare").disabled = true;
+    if (
+        state.playerStatus === "ELIMINATED" ||
+        state.isDropped ||
+        state.declarationMode
+    ) {
 
-    document.getElementById("openVisual").style.opacity = "0.4";
-    document.getElementById("stockCard").style.opacity = "0.4";
+        if (btnDiscard) {
+            btnDiscard.disabled = true;
+        }
 
-    document.getElementById("openVisual").style.pointerEvents = "none";
-    document.getElementById("stockCard").style.pointerEvents = "none";
+        if (btnDeclare) {
+            btnDeclare.disabled = true;
+        }
 
-    return;
-   }
+        if (btnDrop) {
+            btnDrop.disabled = true;
+        }
+
+        if (openPile) {
+            openPile.style.opacity = "0.4";
+            openPile.style.pointerEvents = "none";
+        }
+
+        if (stockPile) {
+            stockPile.style.opacity = "0.4";
+            stockPile.style.pointerEvents = "none";
+        }
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // Current turn
+    // --------------------------------------------------
 
     const myTurn =
-        state.seatNo ===
-        state.currentTurnSeat;
+        Number(state.seatNo) ===
+        Number(state.currentTurnSeat);
 
     const cardCount =
         getTotalCards();
@@ -1891,59 +2595,55 @@ function updateActionButtons(){
         cardCount === 14;
 
 
-    document.getElementById(
-        "btnDiscard"
-    ).disabled =
-        !canDiscard;
+    // --------------------------------------------------
+    // Discard / Declare
+    // --------------------------------------------------
 
-    document.getElementById(
-        "btnDeclare"
-    ).disabled =
-        !canDiscard;
+    if (btnDiscard) {
+        btnDiscard.disabled =
+            !canDiscard;
+    }
+
+    if (btnDeclare) {
+        btnDeclare.disabled =
+            !canDiscard;
+    }
 
 
+    // --------------------------------------------------
+    // Drop only before picking
+    // --------------------------------------------------
 
-  const openPile =
-    document.getElementById(
-        "openVisual"
-    );
+    if (btnDrop) {
+        btnDrop.disabled =
+            !canDraw;
+    }
 
-const stockPile =
-    document.getElementById(
-        "stockCard"
-    );
 
-if(canDraw){
+    // --------------------------------------------------
+    // Open / Stock only before picking
+    // --------------------------------------------------
 
-    openPile.style.opacity = "1";
-    stockPile.style.opacity = "1";
+    if (openPile) {
 
-    openPile.style.pointerEvents =
-        "auto";
+        openPile.style.opacity =
+            canDraw ? "1" : "0.4";
 
-    stockPile.style.pointerEvents =
-        "auto";
+        openPile.style.pointerEvents =
+            canDraw ? "auto" : "none";
+    }
 
-}else{
+    if (stockPile) {
 
-    openPile.style.opacity = "0.4";
-    stockPile.style.opacity = "0.4";
+        stockPile.style.opacity =
+            canDraw ? "1" : "0.4";
 
-    openPile.style.pointerEvents =
-        "none";
-
-    stockPile.style.pointerEvents =
-        "none";
+        stockPile.style.pointerEvents =
+            canDraw ? "auto" : "none";
+    }
 }
 
-if(state.declarationMode){
-    btnDiscard.disabled = true;
-    btnDeclare.disabled = true;
 
-    return;
-}
-
-}
 
   
 
@@ -1973,6 +2673,7 @@ async function loadGame() {
   state.hand = data.hand || [];
   
   state.playerStatus = data.player_status;
+  state.participatedInDeal =   data.participated_in_deal === true;
 
   if (state.playerStatus === "ELIMINATED" && !state.eliminatedRefreshStarted)
 {
@@ -2046,7 +2747,77 @@ document.getElementById("jokerVisual").innerText =
 
 document.getElementById("stockCard").innerText =
     data.stock_pile?.length || 0;
+
+    // Clear selection belonging to the old hand
+state.selectedCard = null;
+state.dragCard = null;
+
+// Display the refreshed database hand
+renderHand();
+
+// Recalculate controls using the refreshed card count
+updateActionButtons();
+
   
+}
+
+function getEstimatedTurnServerNow() {
+
+    if (
+        state.turnServerNowMs == null ||
+        state.turnServerSyncPerfMs == null
+    ) {
+        return null;
+    }
+
+    return (
+        state.turnServerNowMs +
+        (
+            performance.now() -
+            state.turnServerSyncPerfMs
+        )
+    );
+}
+
+async function syncTurnClock() {
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_get_turn_clock",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+    if (error) {
+        console.error(
+            "crdg_get_turn_clock error:",
+            error
+        );
+        return false;
+    }
+
+    if (!data || data.length === 0) {
+        return false;
+    }
+
+    const row = data[0];
+
+    state.currentTurnSeat =
+        Number(row.current_turn_seat);
+
+    state.turnEndAt =
+        row.turn_end_at;
+
+    state.turnServerNowMs =
+        new Date(
+            row.server_now
+        ).getTime();
+
+    state.turnServerSyncPerfMs =
+        performance.now();
+
+    return true;
 }
 
 
@@ -2056,6 +2827,7 @@ function handleEliminatedPlayer()
     state.myTurn = false;
 
     clearInterval(state.turnTimerInterval);
+    state.turnTimerInterval = null; //MAH
 
     document.getElementById("dropBtn").disabled = true;
     document.getElementById("btnDeclare").disabled = true;
@@ -2128,34 +2900,207 @@ async function joinTable() {
 }
 
 function startTurnTimer() {
+ 
+    if (
+        state.tableCompleted ||
+        state.resultWindowOpened ||
+        state.declarationMode
+    ) {
+        clearInterval(state.turnTimerInterval);
+        state.turnTimerInterval = null;
 
-    if (state.playerStatus === "ELIMINATED") {
+        document.getElementById(
+            "turnTimer"
+        ).innerText = "-";
 
-    clearInterval(state.turnTimerInterval);
+        return;
+    }
 
-    document.getElementById("turnTimer").innerText = "-";
+    clearInterval(
+        state.turnTimerInterval
+    );
+    state.turnTimerInterval = null; //MAH
 
-    return;
-   }
+    function updateTurnTimer() {
 
-    clearInterval(state.turnTimerInterval);
+        if (!state.turnEndAt) {
+            return;
+        }
+
+        const serverNow =
+            getEstimatedTurnServerNow();
+
+        if (serverNow == null) {
+            return;
+        }
+
+        const endTime =
+            new Date(
+                state.turnEndAt
+            ).getTime();
+
+        const remaining =
+            Math.max(
+                0,
+                Math.ceil(
+                    (
+                        endTime -
+                        serverNow
+                    ) / 1000
+                )
+            );
+
+        document.getElementById(
+            "turnTimer"
+        ).innerText =
+            remaining;
+
+        if (remaining <= 0) {
+
+            clearInterval(
+                state.turnTimerInterval
+            );
+
+            state.turnTimerInterval = null;
+
+            processTurnTimeout();
+
+            return;
+        }
+    }
+
+    updateTurnTimer();
 
     state.turnTimerInterval =
-        setInterval(() => {
+        setInterval(
+            updateTurnTimer,
+            250
+        );
+}
 
-            const elapsed =
-                Math.floor(
-                    (Date.now() -
-                     state.turnStartedAt) / 1000
-                );
 
-            const remaining = Math.max(0, 40 - elapsed);
+async function refreshTurnAfterTimeout() {
 
-            document.getElementById(
-                "turnTimer"
-            ).innerText = remaining;
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_game_sessions")
+            .select(
+                "current_turn_seat, turn_started_at, turn_end_at"
+            )
+            .eq(
+                "session_id",
+                state.sessionId
+            )
+            .single();
 
-        }, 1000);
+    if (error) {
+
+        console.error(
+            "refreshTurnAfterTimeout error:",
+            error
+        );
+
+        return;
+    }
+
+    // Authoritative DB values
+    state.currentTurnSeat =
+        Number(data.current_turn_seat);
+
+    state.turnStartedAt =
+        data.turn_started_at
+            ? new Date(
+                data.turn_started_at
+              ).getTime()
+            : null;
+
+    state.turnEndAt =
+        data.turn_end_at;
+
+    // Stop whatever old timer is still present
+    clearInterval(
+        state.turnTimerInterval
+    );
+
+    state.turnTimerInterval = null;
+
+    // Enable/disable controls for new turn
+    updateActionButtons();
+}
+
+async function processTurnTimeout() {
+
+    if (!state.sessionId) {
+        return;
+    }
+
+    if (!state.turnEndAt) {
+        return;
+    }
+
+    // Already requested processing for this exact turn
+    if (
+        state.lastProcessedTurnEndAt ===
+        state.turnEndAt
+    ) {
+        return;
+    }
+
+    // Mark BEFORE RPC to prevent duplicate calls
+    state.lastProcessedTurnEndAt =
+        state.turnEndAt;
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient.rpc(
+            "crdg_process_turn_timeout",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+        if (error) {
+
+            console.error(
+                "Turn timeout RPC error:",
+                error
+            );
+
+            // Allow retry if RPC genuinely failed
+            state.lastProcessedTurnEndAt = null;
+
+            return;
+        }
+
+        /*
+        IMPORTANT:
+
+        DO NOT:
+        - change currentTurnSeat here
+        - call loadGame()
+        - call loadSessionInfo()
+        - call updateActionButtons()
+        - remove cards locally
+
+        The SP updates the DB.
+        Realtime handles everything normally.
+        */
+
+       await refreshTurnAfterTimeout();
+
+    }
+    catch (error) {
+
+        console.error(
+            "Turn timeout unexpected error:",
+            error
+        );
+
+        state.lastProcessedTurnEndAt = null;
+    }
 }
 
 async function loadPlayers() {
@@ -2535,7 +3480,35 @@ async function declareGame() {
   if(state.declarationMode){
 
     return;
-}
+   }
+
+
+   
+
+    if (
+        Number(state.seatNo) !==
+        Number(state.currentTurnSeat)
+    ) {
+        alert("Please wait. It is another player's turn.");
+        return;
+    }
+
+    const cardCount = getTotalCards();
+
+    if (cardCount !== 14) {
+        alert("Please pick a card before declaring.");
+        return;
+    }
+
+    if (!state.selectedCard) {
+        alert("Please select one card to discard before declaring.");
+        return;
+    }
+
+    // existing declaration code...
+
+
+
 
     const totalCards =
         state.groups.reduce(
@@ -2733,6 +3706,53 @@ function getCardValue(card) {
     }
 
     return parseInt(rank) || 0;
+}
+
+async function checkSettlementEligibility() {
+
+    if (!state.sessionId) {
+        return;
+    }
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_check_settlement_eligibility",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+    if (error) {
+        console.error(
+            "Settlement eligibility error:",
+            error
+        );
+        return;
+    }
+
+    const result = data?.[0];
+
+    console.log(
+        "SETTLEMENT ELIGIBILITY:",
+        result
+    );
+
+    state.settlementEligible =
+        result?.eligible === true;
+
+    const btn =
+        document.getElementById(
+            "btnSettlement"
+        );
+
+    if (!btn) {
+        return;
+    }
+
+    btn.style.display =
+        state.settlementEligible
+            ? "inline-block"
+            : "none";
 }
 
 
