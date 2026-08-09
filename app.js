@@ -1467,26 +1467,6 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-                console.log(
-                    "SESSION REALTIME RECEIVED:",
-                    {
-                        currentTurn:
-                            payload.new?.current_turn_seat,
-
-                        turnEndAt:
-                            payload.new?.turn_end_at,
-
-                        dealNo:
-                            payload.new?.deal_no,
-
-                        declarationStarted:
-                            payload.new?.declaration_started,
-
-                        dealResultsReady:
-                            payload.new?.deal_results_ready
-                    }
-                );
-
                 // ------------------------------------------
                 // Avoid overlapping refreshes
                 // ------------------------------------------S
@@ -1537,11 +1517,6 @@ function subscribeRealtime() {
             }
         )
         .subscribe((status) => {
-
-            console.log(
-                "SESSION REALTIME STATUS:",
-                status
-            );
 
         });
 }
@@ -2420,11 +2395,6 @@ async function respondSettlement(response) {
             cancelBtn.disabled = false;
             return;
         }
-
-        console.log(
-            "SETTLEMENT RESPONSE:",
-            result
-        );
 
 
         // ------------------------------------------
@@ -3731,11 +3701,6 @@ async function checkSettlementEligibility() {
     }
 
     const result = data?.[0];
-
-    console.log(
-        "SETTLEMENT ELIGIBILITY:",
-        result
-    );
 
     state.settlementEligible =
         result?.eligible === true;
