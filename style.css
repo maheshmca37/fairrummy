@@ -298,8 +298,11 @@ button {
 
 /* CENTER */
 .center {
-  min-height: 0;
-  text-align: center;
+    text-align: center;
+    padding: 0;
+    flex-shrink: 0;
+
+    margin-top: -10px;
 }
 
 /* ========================================
@@ -323,7 +326,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right:20px;
+    margin-right:28px;
 }
 
 .stock-area {
@@ -374,21 +377,38 @@ button {
     background: #ed5261;
 }
 
-.table-card,
 .card-back {
-  width: 55px;
-  height: 75px;
-  border-radius: 8px;
+    width: 62px;
+    height: 90px;
+
+    position: absolute;
+
+    top: 25px;
+    left: 45px;
+
+    background: #244a73;
+
+    border: 2px solid white;
+    border-radius: 8px;
+
+    z-index: 2;
 }
 
 .table-card {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: white;
-  color: black;
-  font-size: 20px;
-  font-weight: 700;
+    width: 64px;
+    height: 92px;
+
+    background: white;
+    color: black;
+
+    border-radius: 8px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 24px;
+    font-weight: 900;
 }
 
 .stock-area {
@@ -490,7 +510,7 @@ button {
     flex-direction: column;
     align-items: center;
 
-    margin: 0 0 8px;
+    margin: 0 0 5px;
 }
 
 .my-player-details {
@@ -553,28 +573,42 @@ button {
 
 /* HAND */
 .hand {
-  min-height: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  flex-wrap: nowrap;
-  gap: 7px;
-  padding: 5px 0 0;
-  overflow: hidden;
+    display: flex;
+
+    justify-content: center;
+    align-items: stretch;
+
+    gap: 4px;
+
+    padding: 4px 6px 8px;
+
+    flex-wrap: nowrap;
+
+    min-height: 170px;
+
+    margin-top: 0;
 }
 
 .group-box {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 132px;
-  display: flex;
-  align-content: flex-start;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 7px;
-  border: 1px solid #555;
-  border-radius: 8px;
-  overflow: hidden;
+    min-width: 220px;
+
+    /* IMPORTANT */
+    min-height: 158px;
+    height: auto;
+
+    border: 1px solid #555;
+    border-radius: 8px;
+
+    padding: 8px;
+    margin: 4px;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+
+    align-content: flex-start;
+
+    overflow: visible;
 }
 
 .group-title {
@@ -585,8 +619,8 @@ button {
 }
 
 .card {
-    width: 51px;
-    height: 115px;
+    width: 64px;
+    height: 120px;
 
     background: white;
     color: #111;
@@ -598,6 +632,9 @@ button {
     align-items: center;
     justify-content: center;
     gap: 1px;
+    font-size: 20px;
+    font-weight: 900;
+
 
     padding: 2px;
 
