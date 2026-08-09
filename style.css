@@ -619,7 +619,7 @@ button {
 }
 
 .card {
-    width: 64px;
+    width: 62px;
     height: 120px;
 
     background: white;
@@ -1111,6 +1111,28 @@ body.mobile-game-mode .game-stage {
     height: 720px;
 
     overflow: hidden;
+}
+
+@media (max-width: 900px) {
+
+    .group-box {
+        min-width: 265px;
+        width: 265px;
+
+        min-height: 158px;
+        height: auto;
+
+        flex-wrap: wrap;
+        align-content: flex-start;
+
+        overflow: visible;
+    }
+
+    .card {
+        width: 62px;
+        height: 118px;
+        flex: 0 0 60px;
+    }
 }
 
 /* The game itself is scaled by responsive.js. */
