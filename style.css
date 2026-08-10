@@ -378,7 +378,7 @@ button {
 }
 
 .card-back {
-    width: 62px;
+    width: 59px;
     height: 90px;
 
     position: absolute;
@@ -1116,22 +1116,30 @@ body.mobile-game-mode .game-stage {
 @media (max-width: 900px) {
 
     .group-box {
-        min-width: 265px;
         width: 265px;
+        min-width: 265px;
 
+        /* IMPORTANT */
+        height: auto !important;
         min-height: 158px;
-        height: auto;
 
+        display: flex;
         flex-wrap: wrap;
         align-content: flex-start;
+        align-items: flex-start;
+
+        gap: 3px;
 
         overflow: visible;
+        box-sizing: border-box;
     }
 
-    .card {
-        width: 62px;
-        height: 118px;
-        flex: 0 0 60px;
+    .hand {
+        height: auto !important;
+        min-height: 170px;
+
+        align-items: flex-start;
+        overflow: visible;
     }
 }
 
