@@ -128,6 +128,359 @@ document
         }
     );
 
+
+const openVisual =
+    document.getElementById("openVisual");
+
+openVisual.addEventListener("dragstart", (e) => {
+
+    e.dataTransfer.setData(
+        "text/plain",
+        "OPEN_CARD"
+    );
+
+    e.dataTransfer.effectAllowed = "move";
+});
+
+const group5 =
+    document.getElementById("group4");
+
+group5.addEventListener("dragover", (e) => {
+    e.preventDefault();
+});
+
+group5.addEventListener("drop", async (e) => {
+
+    e.preventDefault();
+
+    const source =
+        e.dataTransfer.getData("text/plain");
+
+    if(source !== "OPEN_CARD"){
+        return;
+    }
+
+    await draw("open");
+});
+
+openVisual.addEventListener("dragover", (e) => {
+    e.preventDefault();
+});
+
+openVisual.addEventListener("drop", async (e) => {
+
+    e.preventDefault();
+
+    if(!state.dragCard){
+        return;
+    }
+
+    state.selectedCard = {
+        card: state.dragCard.card,
+        group: state.dragCard.group,
+        index: state.dragCard.index
+    };
+
+    state.dragCard = null;
+
+    await discard();
+});
+
+
+enableMobileCardDrag();
+
+function enableMobileCardDrag() {
+
+    if (window.innerWidth > 900) {
+        return;
+    }
+
+    let dragType = null;
+    let dragCardData = null;
+    let dragGhost = null;
+
+    const openVisual =
+        document.getElementById("openVisual");
+
+    const group5 =
+        document.getElementById("group4");
+
+    if (!openVisual || !group5) {
+        return;
+    }
+
+    function createGhost(text, x, y) {
+
+        dragGhost = document.createElement("div");
+
+        dragGhost.textContent = text;
+
+        dragGhost.style.position = "fixed";
+        dragGhost.style.left = x + "px";
+        dragGhost.style.top = y + "px";
+
+        dragGhost.style.width = "60px";
+        dragGhost.style.height = "118px";
+
+        dragGhost.style.background = "white";
+        dragGhost.style.color = "black";
+
+        dragGhost.style.border = "2px solid gold";
+        dragGhost.style.borderRadius = "8px";
+
+        dragGhost.style.display = "flex";
+        dragGhost.style.alignItems = "center";
+        dragGhost.style.justifyContent = "center";
+
+        dragGhost.style.fontWeight = "bold";
+        dragGhost.style.fontSize = "20px";
+
+        dragGhost.style.pointerEvents = "none";
+
+        dragGhost.style.transform =
+            "translate(-50%, -50%) scale(.9)";
+
+        dragGhost.style.opacity = ".9";
+
+        dragGhost.style.zIndex = "99999";
+
+        document.body.appendChild(dragGhost);
+    }
+
+    function moveGhost(x, y) {
+
+        if (!dragGhost) {
+            return;
+        }
+
+        dragGhost.style.left = x + "px";
+        dragGhost.style.top = y + "px";
+    }
+
+    function removeGhost() {
+
+        if (dragGhost) {
+            dragGhost.remove();
+            dragGhost = null;
+        }
+    }
+
+    function isInside(element, x, y) {
+
+        const rect =
+            element.getBoundingClientRect();
+
+        return (
+            x >= rect.left &&
+            x <= rect.right &&
+            y >= rect.top &&
+            y <= rect.bottom
+        );
+    }
+
+
+    /* =====================================
+       OPEN CARD -> GROUP 5
+    ===================================== */
+
+    openVisual.addEventListener(
+        "pointerdown",
+        function (e) {
+
+            if (e.pointerType === "mouse") {
+                return;
+            }
+
+            dragType = "OPEN_CARD";
+
+            createGhost(
+                openVisual.innerText,
+                e.clientX,
+                e.clientY
+            );
+
+            openVisual.setPointerCapture(
+                e.pointerId
+            );
+        }
+    );
+
+    openVisual.addEventListener(
+        "pointermove",
+        function (e) {
+
+            if (dragType !== "OPEN_CARD") {
+                return;
+            }
+
+            moveGhost(
+                e.clientX,
+                e.clientY
+            );
+        }
+    );
+
+    openVisual.addEventListener(
+        "pointerup",
+        async function (e) {
+
+            if (dragType !== "OPEN_CARD") {
+                return;
+            }
+
+            if (
+                isInside(
+                    group5,
+                    e.clientX,
+                    e.clientY
+                )
+            ) {
+
+                await draw("open");
+            }
+
+            dragType = null;
+
+            removeGhost();
+        }
+    );
+
+
+    /* =====================================
+       HAND CARD -> OPEN PILE
+    ===================================== */
+
+    const hand =
+        document.getElementById("my-hand");
+
+    hand.addEventListener(
+        "pointerdown",
+        function (e) {
+
+            if (e.pointerType === "mouse") {
+                return;
+            }
+
+            const cardElement =
+                e.target.closest(".card");
+
+            if (!cardElement) {
+                return;
+            }
+
+            if (state.isDropped) {
+                return;
+            }
+
+            let found = false;
+
+            for (
+                let g = 0;
+                g < state.groups.length;
+                g++
+            ) {
+
+                const cards =
+                    document.querySelectorAll(
+                        "#group" + g + " .card"
+                    );
+
+                cards.forEach(
+                    (cardEl, index) => {
+
+                        if (
+                            cardEl === cardElement
+                        ) {
+
+                            dragCardData = {
+                                card:
+                                    state.groups[g][index],
+                                group: g,
+                                index: index
+                            };
+
+                            found = true;
+                        }
+                    }
+                );
+
+                if (found) {
+                    break;
+                }
+            }
+
+            if (!dragCardData) {
+                return;
+            }
+
+            dragType = "HAND_CARD";
+
+            createGhost(
+                dragCardData.card,
+                e.clientX,
+                e.clientY
+            );
+
+            cardElement.setPointerCapture(
+                e.pointerId
+            );
+        }
+    );
+
+    hand.addEventListener(
+        "pointermove",
+        function (e) {
+
+            if (dragType !== "HAND_CARD") {
+                return;
+            }
+
+            moveGhost(
+                e.clientX,
+                e.clientY
+            );
+        }
+    );
+
+    hand.addEventListener(
+        "pointerup",
+        async function (e) {
+
+            if (
+                dragType !== "HAND_CARD" ||
+                !dragCardData
+            ) {
+                return;
+            }
+
+            if (
+                isInside(
+                    openVisual,
+                    e.clientX,
+                    e.clientY
+                )
+            ) {
+
+                state.selectedCard = {
+                    card:
+                        dragCardData.card,
+                    group:
+                        dragCardData.group,
+                    index:
+                        dragCardData.index
+                };
+
+                await discard();
+            }
+
+            dragType = null;
+            dragCardData = null;
+
+            removeGhost();
+        }
+    );
+}
+
 // =========================
 // RENDER HAND
 // =========================

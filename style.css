@@ -308,6 +308,11 @@ button {
 /* ========================================
    OPEN CARD / STOCK / ACTION LINE
 ======================================== */
+#openVisual,
+#my-hand .card {
+    touch-action: none;
+}
+
 
 .table-piles {
     display: flex;
