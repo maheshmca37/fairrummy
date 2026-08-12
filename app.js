@@ -443,42 +443,174 @@ function enableMobileCardDrag() {
     );
 
     hand.addEventListener(
-        "pointerup",
-        async function (e) {
+    "pointerup",
+    async function (e) {
 
-            if (
-                dragType !== "HAND_CARD" ||
-                !dragCardData
-            ) {
-                return;
-            }
-
-            if (
-                isInside(
-                    openVisual,
-                    e.clientX,
-                    e.clientY
-                )
-            ) {
-
-                state.selectedCard = {
-                    card:
-                        dragCardData.card,
-                    group:
-                        dragCardData.group,
-                    index:
-                        dragCardData.index
-                };
-
-                await discard();
-            }
-
-            dragType = null;
-            dragCardData = null;
-
-            removeGhost();
+        if (
+            dragType !== "HAND_CARD" ||
+            !dragCardData
+        ) {
+            return;
         }
-    );
+
+        let handled = false;
+
+        /*
+        =====================================
+        1. HAND CARD -> OPEN PILE
+        =====================================
+        */
+
+        if (
+            isInside(
+                openVisual,
+                e.clientX,
+                e.clientY
+            )
+        ) {
+
+            state.selectedCard = {
+                card: dragCardData.card,
+                group: dragCardData.group,
+                index: dragCardData.index
+            };
+
+            await discard();
+
+            handled = true;
+        }
+
+        /*
+        =====================================
+        2. HAND CARD -> ANOTHER GROUP
+        =====================================
+        */
+
+        if (!handled) {
+
+            for (let targetGroup = 0; targetGroup < 5; targetGroup++) {
+
+                const groupEl =
+                    document.getElementById(
+                        "group" + targetGroup
+                    );
+
+                if (!groupEl) {
+                    continue;
+                }
+
+                if (
+                    isInside(
+                        groupEl,
+                        e.clientX,
+                        e.clientY
+                    )
+                ) {
+
+                    const sourceGroup =
+                        dragCardData.group;
+
+                    const sourceIndex =
+                        dragCardData.index;
+
+                    const cardToMove =
+                        dragCardData.card;
+
+                    /*
+                     Same group dropped into empty area:
+                     do nothing for now.
+                    */
+                    if (sourceGroup === targetGroup) {
+
+    const targetCards =
+        groupEl.querySelectorAll(".card");
+
+    let targetIndex = -1;
+
+    targetCards.forEach((cardEl, index) => {
+
+        const rect =
+            cardEl.getBoundingClientRect();
+
+        if (
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom
+        ) {
+            targetIndex = index;
+        }
+    });
+
+    if (
+        targetIndex !== -1 &&
+        targetIndex !== sourceIndex
+    ) {
+
+        const movedCard =
+            state.groups[sourceGroup]
+                .splice(
+                    sourceIndex,
+                    1
+                )[0];
+
+        if (sourceIndex < targetIndex) {
+            targetIndex--;
+        }
+
+        state.groups[targetGroup]
+            .splice(
+                targetIndex,
+                0,
+                movedCard
+            );
+
+        state.selectedCard = null;
+
+        renderHand();
+        calculateDealScore();
+    }
+
+    handled = true;
+    break;
+}
+
+                    /*
+                     Remove from source group
+                    */
+
+                    state.groups[sourceGroup]
+                        .splice(
+                            sourceIndex,
+                            1
+                        );
+
+                    /*
+                     Add to target group
+                    */
+
+                    state.groups[targetGroup]
+                        .push(
+                            cardToMove
+                        );
+
+                    state.selectedCard = null;
+
+                    renderHand();
+                    calculateDealScore();
+
+                    handled = true;
+                    break;
+                }
+            }
+        }
+
+        dragType = null;
+        dragCardData = null;
+
+        removeGhost();
+    }
+);
 }
 
 // =========================
