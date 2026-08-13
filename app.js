@@ -659,7 +659,7 @@ function renderHand() {
 
         groupEl.innerHTML =
             `<div class="group-title">
-                Group ${g + 1}
+                G${g + 1}
              </div>`;
 
         if(!state.groups[g]) {
