@@ -1113,11 +1113,11 @@ body {
         justify-content: center;
         align-items: flex-start;
 
-        gap: 4px;
+        gap: 3px;
 
         width: 100%;
 
-        padding: 4px 4px 8px;
+        padding: 4px 2px 8px;
 
         box-sizing: border-box;
 
@@ -1126,7 +1126,7 @@ body {
 
     .group-box {
         width: max-content;
-        min-width: 68px;
+        min-width: 58px;
 
         min-height: 150px;
         height: auto;
@@ -1138,11 +1138,15 @@ body {
 
         gap: 3px;
 
-        padding: 24px 5px 6px;
+        padding: 24px 4px 6px;
 
         flex: 0 0 auto;
 
+        position: relative;
+
         overflow: visible;
+
+        box-sizing: border-box;
     }
 
     .card {
@@ -1198,31 +1202,54 @@ body.mobile-game-mode .game-stage {
 
 @media (max-width: 900px) {
 
-    .group-box {
-        width: 265px;
-        min-width: 265px;
-
-        /* IMPORTANT */
-        height: auto !important;
-        min-height: 158px;
-
+    .hand {
         display: flex;
-        flex-wrap: wrap;
-        align-content: flex-start;
+        flex-wrap: nowrap;
+
+        justify-content: center;
+        align-items: flex-start;
+
+        gap: 4px;
+
+        width: 100%;
+
+        padding: 4px 4px 8px;
+
+        box-sizing: border-box;
+
+        overflow: visible;
+    }
+
+    .group-box {
+        width: max-content;
+        min-width: 68px;
+
+        min-height: 150px;
+        height: auto;
+
+        display: inline-flex;
+        flex-wrap: nowrap;
+
         align-items: flex-start;
 
         gap: 3px;
 
+        padding: 24px 5px 6px;
+
+        flex: 0 0 auto;
+
         overflow: visible;
-        box-sizing: border-box;
     }
 
-    .hand {
-        height: auto !important;
-        min-height: 170px;
+    .card {
+        width: 60px;
+        min-width: 60px;
+        max-width: 60px;
 
-        align-items: flex-start;
-        overflow: visible;
+        height: 118px;
+
+        flex: 0 0 60px;
+        flex-shrink: 0;
     }
 }
 
