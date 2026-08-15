@@ -265,6 +265,14 @@ function enableMobileCardDrag() {
         }
     }
 
+    function cancelMobileDrag() {
+
+        dragType = null;
+        dragCardData = null;
+
+        removeGhost();
+    }
+
     function isInside(element, x, y) {
 
         const rect =
@@ -343,6 +351,26 @@ function enableMobileCardDrag() {
 
             removeGhost();
         }
+    );
+
+        openVisual.addEventListener(
+        "pointercancel",
+        cancelMobileDrag
+    );
+
+    hand.addEventListener(
+        "pointercancel",
+        cancelMobileDrag
+    );
+
+    openVisual.addEventListener(
+        "lostpointercapture",
+        cancelMobileDrag
+    );
+
+    hand.addEventListener(
+        "lostpointercapture",
+        cancelMobileDrag
     );
 
 
