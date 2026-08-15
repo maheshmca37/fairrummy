@@ -1982,58 +1982,74 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-                 alert("Realtime ENTERED");
+            alert(
+                "1. Realtime ENTERED\n" +
+                "Pending = " + sessionRefreshPending
+            );
 
-                // ------------------------------------------
-                // Avoid overlapping refreshes
-                // ------------------------------------------S
+            // ------------------------------------------
+            // Avoid overlapping refreshes
+            // ------------------------------------------
 
-                if (sessionRefreshPending) {
-                    return;
+            if (sessionRefreshPending) {
+
+                alert(
+                    "2. RETURNING because " +
+                    "sessionRefreshPending = true"
+                );
+
+                return;
+            }
+
+            sessionRefreshPending = true;
+
+            alert("3. Pending SET TRUE");
+
+            setTimeout(async () => {
+
+                alert("4. setTimeout ENTERED");
+
+                try {
+
+                    alert("5. BEFORE loadSessionInfo");
+
+                    await loadSessionInfo();
+
+                    alert("6. AFTER loadSessionInfo");
+
+                    updateActionButtons();
+
+                    alert("7. AFTER updateActionButtons");
+
+                    alert("8. Realtime EXIT");
+
+                }
+                catch (error) {
+
+                    alert(
+                        "REALTIME ERROR:\n" +
+                        (error?.message || String(error))
+                    );
+
+                    console.error(
+                        "Realtime session refresh error:",
+                        error
+                    );
+
+                }
+                finally {
+
+                    sessionRefreshPending = false;
+
+                    alert(
+                        "9. FINALLY\n" +
+                        "Pending = " +
+                        sessionRefreshPending
+                    );
                 }
 
-                sessionRefreshPending = true;
-
-                setTimeout(async () => {
-
-                    try {
-
-                        // ----------------------------------
-                        // This loads authoritative session:
-                        // dealer
-                        // current turn
-                        // turn_end_at
-                        // declaration state
-                        // observation/result state
-                        // dynamic seat
-                        // players
-                        // ----------------------------------
-
-                        await loadSessionInfo();
-
-                        // Normally loadSessionInfo already
-                        // calls this, but keeping once here
-                        // is safe.
-                        updateActionButtons();
-
-                        alert("Realtime EXIT");
-
-                    }
-                    catch (error) {
-
-                        console.error(
-                            "Realtime session refresh error:",
-                            error
-                        );
-
-                    }
-                    finally {
-
-                        sessionRefreshPending = false;
-                    }
-
-                }, 300);
-            }
+            }, 300);
+}
         )
         .subscribe((status) => {
 
