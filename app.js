@@ -503,7 +503,7 @@ function enableMobileCardDrag() {
                 index: dragCardData.index
             };
 
-            await discard();
+           // await discard();
 
             handled = true;
         }
