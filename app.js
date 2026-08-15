@@ -1963,6 +1963,8 @@ function subscribeRealtime() {
         return;
     }
 
+   
+
     supabaseClient
         .channel(
             "game-session-" +
@@ -1979,6 +1981,8 @@ function subscribeRealtime() {
                     state.sessionId
             },
             (payload) => {
+
+                 alert("Realtime ENTERED");
 
                 // ------------------------------------------
                 // Avoid overlapping refreshes
@@ -2011,6 +2015,8 @@ function subscribeRealtime() {
                         // calls this, but keeping once here
                         // is safe.
                         updateActionButtons();
+
+                        alert("Realtime EXIT");
 
                     }
                     catch (error) {
