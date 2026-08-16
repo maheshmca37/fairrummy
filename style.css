@@ -1209,7 +1209,7 @@ body.mobile-game-mode .game-stage {
         justify-content: center;
         align-items: flex-start;
 
-        gap: 8px;
+        gap: 4px;
 
         width: 100%;
 
@@ -1222,7 +1222,7 @@ body.mobile-game-mode .game-stage {
 
     .group-box {
         width: max-content;
-        min-width: 85px;
+        min-width: 80px;
 
         min-height: 150px;
         height: auto;
@@ -1242,20 +1242,20 @@ body.mobile-game-mode .game-stage {
     }
 
     .card {
-    width: 85px;
-    min-width: 85px;
-    max-width: 85px;
+    width: 72px;
+    min-width: 72px;
+    max-width: 72px;
 
     height: 120px;
 
-    flex: 0 0 85px;
+    flex: 0 0 72px;
     flex-shrink: 0;
 }
 
 }
 
 .group-box:has(.card) {
-    padding-right: 35px;
+    padding-right: 33px;
 }
 
 .group-box:not(:has(.card)) {
