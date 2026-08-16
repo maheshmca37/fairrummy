@@ -1687,6 +1687,34 @@ function renderDealHistory(historyRows) {
     );
 }
 
+
+function showRTDebug(message) {
+
+    let el = document.getElementById("rtDebug");
+
+    if (!el) {
+
+        el = document.createElement("div");
+        el.id = "rtDebug";
+
+        el.style.position = "fixed";
+        el.style.top = "45px";
+        el.style.left = "5px";
+        el.style.zIndex = "999999";
+
+        el.style.background = "#ff0000";
+        el.style.color = "#ffffff";
+
+        el.style.padding = "5px 8px";
+        el.style.fontSize = "12px";
+        el.style.fontWeight = "bold";
+
+        document.body.appendChild(el);
+    }
+
+    el.innerText = message;
+}
+
 function openHistoryPopup() {
 
     const popup =
@@ -1982,76 +2010,50 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-            alert(
-    "Realtime ENTERED\n" +
-    "sessionRefreshPending = " +
-    String(sessionRefreshPending)
-);
-            // ------------------------------------------
-            // Avoid overlapping refreshes
-            // ------------------------------------------
+                if (sessionRefreshPending) {
+                    return;
+                }
 
-            if (sessionRefreshPending) {
+                sessionRefreshPending = true;
 
-                return;
+                setTimeout(async () => {
+
+                    try {
+
+                        await loadSessionInfo();
+                        updateActionButtons();
+
+                    }
+                    catch (error) {
+
+                        console.error(
+                            "Realtime session refresh error:",
+                            error
+                        );
+
+                    }
+                    finally {
+
+                        sessionRefreshPending = false;
+                    }
+
+                }, 300);
             }
-
-            sessionRefreshPending = true;
-
-            //alert("3. Pending SET TRUE");
-
-            setTimeout(async () => {
-
-              //  alert("4. setTimeout ENTERED");
-
-                try {
-
-                   // alert("5. BEFORE loadSessionInfo");
-
-                    await loadSessionInfo();
-
-                   // alert("6. AFTER loadSessionInfo");
-
-                    updateActionButtons();
-
-                   // alert("7. AFTER updateActionButtons");
-
-                    alert("8. Realtime EXIT");
-
-                }
-                catch (error) {
-
-                    alert(
-                        "REALTIME ERROR:\n" +
-                        (error?.message || String(error))
-                    );
-
-                    console.error(
-                        "Realtime session refresh error:",
-                        error
-                    );
-
-                }
-                finally {
-
-                    sessionRefreshPending = false;
-
-                }
-
-            }, 300);
-}
         )
         .subscribe((status, err) => {
 
-            alert(
-                "SESSION REALTIME STATUS:\n" +
-                status +
-                "\n\nERROR:\n" +
+            showRTDebug(
+                "RT: " + status +
                 (err
-                    ? JSON.stringify(err)
-                    : "none")
+                    ? " | " + (err.message || JSON.stringify(err))
+                    : "")
             );
 
+            console.log(
+                "Realtime status:",
+                status,
+                err
+            );
         });
 }
 
