@@ -1996,7 +1996,9 @@ function subscribeRealtime() {
     supabaseClient
         .channel(
             "game-session-" +
-            state.sessionId
+            state.sessionId +
+            "-" +
+            state.userId
         )
         .on(
             "postgres_changes",
@@ -2009,6 +2011,11 @@ function subscribeRealtime() {
                     state.sessionId
             },
             (payload) => {
+
+                    showRTDebug(
+                        "EVENT RECEIVED"
+                    );
+
 
                 if (sessionRefreshPending) {
                     return;
