@@ -1242,19 +1242,20 @@ body.mobile-game-mode .game-stage {
     }
 
     .card {
-        width: 63px;
-        min-width: 60px;
-        max-width: 60px;
+    width: 69px;
+    min-width: 69px;
+    max-width: 69px;
 
-        height: 118px;
+    height: 118px;
 
-        flex: 0 0 60px;
-        flex-shrink: 0;
-    }
+    flex: 0 0 69px;
+    flex-shrink: 0;
+}
+
 }
 
 .group-box:has(.card) {
-    padding-right: 30px;
+    padding-right: 40px;
 }
 
 .group-box:not(:has(.card)) {
