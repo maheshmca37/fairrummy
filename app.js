@@ -1688,33 +1688,6 @@ function renderDealHistory(historyRows) {
 }
 
 
-function showRTDebug(message) {
-
-    let el = document.getElementById("rtDebug");
-
-    if (!el) {
-
-        el = document.createElement("div");
-        el.id = "rtDebug";
-
-        el.style.position = "fixed";
-        el.style.top = "45px";
-        el.style.left = "5px";
-        el.style.zIndex = "999999";
-
-        el.style.background = "#ff0000";
-        el.style.color = "#ffffff";
-
-        el.style.padding = "5px 8px";
-        el.style.fontSize = "12px";
-        el.style.fontWeight = "bold";
-
-        document.body.appendChild(el);
-    }
-
-    el.innerText = message;
-}
-
 function openHistoryPopup() {
 
     const popup =
@@ -2011,12 +1984,7 @@ function subscribeRealtime() {
                     state.sessionId
             },
             (payload) => {
-
-                    showRTDebug(
-                        "EVENT RECEIVED"
-                    );
-
-
+                
                 if (sessionRefreshPending) {
                     return;
                 }
@@ -2048,13 +2016,6 @@ function subscribeRealtime() {
             }
         )
         .subscribe((status, err) => {
-
-            showRTDebug(
-                "RT: " + status +
-                (err
-                    ? " | " + (err.message || JSON.stringify(err))
-                    : "")
-            );
 
             console.log(
                 "Realtime status:",

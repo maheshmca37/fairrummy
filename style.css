@@ -1242,7 +1242,7 @@ body.mobile-game-mode .game-stage {
     }
 
     .card {
-        width: 60px;
+        width: 63px;
         min-width: 60px;
         max-width: 60px;
 
@@ -1251,6 +1251,14 @@ body.mobile-game-mode .game-stage {
         flex: 0 0 60px;
         flex-shrink: 0;
     }
+}
+
+.group-box:has(.card) {
+    padding-right: 30px;
+}
+
+.group-box:not(:has(.card)) {
+    min-width: 90px;
 }
 
 /* The game itself is scaled by responsive.js. */
