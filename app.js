@@ -1983,14 +1983,24 @@ function subscribeRealtime() {
             (payload) => {
 
             alert("1. Realtime ENTERED");
+            alert("2. sessionRefreshPending:" + sessionRefreshPending);
 
             // ------------------------------------------
             // Avoid overlapping refreshes
             // ------------------------------------------
 
+            if (sessionRefreshPending) {
+
+                return;
+            }
+
             sessionRefreshPending = true;
 
+            alert("3. Pending SET TRUE");
+
             setTimeout(async () => {
+
+                alert("4. setTimeout ENTERED");
 
                 try {
 
@@ -2001,6 +2011,8 @@ function subscribeRealtime() {
                     alert("6. AFTER loadSessionInfo");
 
                     updateActionButtons();
+
+                    alert("7. AFTER updateActionButtons");
 
                     alert("8. Realtime EXIT");
 
