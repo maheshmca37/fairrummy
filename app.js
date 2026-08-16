@@ -1982,32 +1982,15 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-            alert(
-                "1. Realtime ENTERED\n" +
-                "Pending = " + sessionRefreshPending
-            );
+            alert("1. Realtime ENTERED");
 
             // ------------------------------------------
             // Avoid overlapping refreshes
             // ------------------------------------------
 
-            if (sessionRefreshPending) {
-
-                alert(
-                    "2. RETURNING because " +
-                    "sessionRefreshPending = true"
-                );
-
-                return;
-            }
-
             sessionRefreshPending = true;
 
-            alert("3. Pending SET TRUE");
-
             setTimeout(async () => {
-
-                alert("4. setTimeout ENTERED");
 
                 try {
 
@@ -2018,8 +2001,6 @@ function subscribeRealtime() {
                     alert("6. AFTER loadSessionInfo");
 
                     updateActionButtons();
-
-                    alert("7. AFTER updateActionButtons");
 
                     alert("8. Realtime EXIT");
 
