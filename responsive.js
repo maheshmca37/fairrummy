@@ -78,24 +78,6 @@
     */
 
     function applyMobileMode() {
-
-
-            window.addEventListener(
-            "resize",
-            applyMobileMode
-        );
-
-        window.addEventListener(
-            "orientationchange",
-            () => {
-                setTimeout(applyMobileMode, 300);
-            }
-        );
-
-        window.visualViewport?.addEventListener(
-            "resize",
-            applyMobileMode
-        );
     const { app, stage } = getElements();
 
     if (!app || !stage) {
@@ -116,13 +98,8 @@
      Scale width and height separately so the game
      occupies the complete available mobile screen.
     */
-   
-     const scaleX = viewportWidth / DESIGN_WIDTH;
-     const scaleY = viewportHeight / DESIGN_HEIGHT;
-
-/* FIT COMPLETE GAME INSIDE MOBILE SCREEN */
-    const scale = Math.min(scaleX, scaleY);
-
+    const scaleX = viewportWidth / DESIGN_WIDTH;
+    const scaleY = viewportHeight / DESIGN_HEIGHT;
 
     document.documentElement.classList.add("mobile-game-mode");
     document.body.classList.add("mobile-game-mode");
@@ -147,11 +124,8 @@
 
     stage.style.transformOrigin = "center center";
 
-    
-     stage.style.transform =
-    `translate(-50%, -50%) scale(${scale})`;
-
-    
+    stage.style.transform =
+        `translate(-50%, -50%) scale(${scaleX}, ${scaleY})`;
 }
 
     /*

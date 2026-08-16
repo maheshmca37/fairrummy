@@ -62,11 +62,7 @@ let state = {
   deal_no : null,
   wildRank : null,
   dropType : null,
-  myScore: null,
-  settlementEligible: false,
-  settlementId: null,
-  settlementOpened: false,
-  participatedInDeal : false
+  myScore: null
 };
 
 let savedUserId =
@@ -128,519 +124,6 @@ document
         }
     );
 
-
-const openVisual =
-    document.getElementById("openVisual");
-
-openVisual.addEventListener("dragstart", (e) => {
-
-    e.dataTransfer.setData(
-        "text/plain",
-        "OPEN_CARD"
-    );
-
-    e.dataTransfer.effectAllowed = "move";
-});
-
-const group5 =
-    document.getElementById("group4");
-
-group5.addEventListener("dragover", (e) => {
-    e.preventDefault();
-});
-
-group5.addEventListener("drop", async (e) => {
-
-    e.preventDefault();
-
-    const source =
-        e.dataTransfer.getData("text/plain");
-
-    if(source !== "OPEN_CARD"){
-        return;
-    }
-
-    await draw("open");
-});
-
-openVisual.addEventListener("dragover", (e) => {
-    e.preventDefault();
-});
-
-openVisual.addEventListener("drop", async (e) => {
-
-    e.preventDefault();
-
-    if(!state.dragCard){
-        return;
-    }
-
-    state.selectedCard = {
-        card: state.dragCard.card,
-        group: state.dragCard.group,
-        index: state.dragCard.index
-    };
-
-    state.dragCard = null;
-
-    await discard();
-});
-
-
-enableMobileCardDrag();
-
-function enableMobileCardDrag() {
-
-    if (window.innerWidth > 900) {
-        return;
-    }
-
-    let dragType = null;
-    let dragCardData = null;
-    let dragGhost = null;
-
-    const openVisual =
-        document.getElementById("openVisual");
-
-    const group5 =
-        document.getElementById("group4");
-
-    if (!openVisual || !group5) {
-        return;
-    }
-
-    function createGhost(text, x, y) {
-
-        dragGhost = document.createElement("div");
-
-        dragGhost.textContent = text;
-
-        dragGhost.style.position = "fixed";
-        dragGhost.style.left = x + "px";
-        dragGhost.style.top = y + "px";
-
-        dragGhost.style.width = "60px";
-        dragGhost.style.height = "118px";
-
-        dragGhost.style.background = "white";
-        dragGhost.style.color = "black";
-
-        dragGhost.style.border = "2px solid gold";
-        dragGhost.style.borderRadius = "8px";
-
-        dragGhost.style.display = "flex";
-        dragGhost.style.alignItems = "center";
-        dragGhost.style.justifyContent = "center";
-
-        dragGhost.style.fontWeight = "bold";
-        dragGhost.style.fontSize = "20px";
-
-        dragGhost.style.pointerEvents = "none";
-
-        dragGhost.style.transform =
-            "translate(-50%, -50%) scale(.9)";
-
-        dragGhost.style.opacity = ".9";
-
-        dragGhost.style.zIndex = "99999";
-
-        document.body.appendChild(dragGhost);
-    }
-
-    function moveGhost(x, y) {
-
-        if (!dragGhost) {
-            return;
-        }
-
-        dragGhost.style.left = x + "px";
-        dragGhost.style.top = y + "px";
-    }
-
-    function removeGhost() {
-
-        if (dragGhost) {
-            dragGhost.remove();
-            dragGhost = null;
-        }
-    }
-
-    function cancelMobileDrag() {
-
-        dragType = null;
-        dragCardData = null;
-
-        removeGhost();
-    }
-
-    function isInside(element, x, y) {
-
-        const rect =
-            element.getBoundingClientRect();
-
-        return (
-            x >= rect.left &&
-            x <= rect.right &&
-            y >= rect.top &&
-            y <= rect.bottom
-        );
-    }
-
-
-    /* =====================================
-       OPEN CARD -> GROUP 5
-    ===================================== */
-
-    openVisual.addEventListener(
-        "pointerdown",
-        function (e) {
-
-            if (e.pointerType === "mouse") {
-                return;
-            }
-
-            dragType = "OPEN_CARD";
-
-            createGhost(
-                openVisual.innerText,
-                e.clientX,
-                e.clientY
-            );
-
-            openVisual.setPointerCapture(
-                e.pointerId
-            );
-        }
-    );
-
-    openVisual.addEventListener(
-        "pointermove",
-        function (e) {
-
-            if (dragType !== "OPEN_CARD") {
-                return;
-            }
-
-            moveGhost(
-                e.clientX,
-                e.clientY
-            );
-        }
-    );
-
-    openVisual.addEventListener(
-        "pointerup",
-        async function (e) {
-
-            if (dragType !== "OPEN_CARD") {
-                return;
-            }
-
-            if (
-                isInside(
-                    group5,
-                    e.clientX,
-                    e.clientY
-                )
-            ) {
-
-                await draw("open");
-            }
-
-            dragType = null;
-
-            removeGhost();
-        }
-    );
-
-        openVisual.addEventListener(
-        "pointercancel",
-        cancelMobileDrag
-    );
-
-    hand.addEventListener(
-        "pointercancel",
-        cancelMobileDrag
-    );
-
-    openVisual.addEventListener(
-        "lostpointercapture",
-        cancelMobileDrag
-    );
-
-    hand.addEventListener(
-        "lostpointercapture",
-        cancelMobileDrag
-    );
-
-
-    /* =====================================
-       HAND CARD -> OPEN PILE
-    ===================================== */
-
-    const hand =
-        document.getElementById("my-hand");
-
-    hand.addEventListener(
-        "pointerdown",
-        function (e) {
-
-            if (e.pointerType === "mouse") {
-                return;
-            }
-
-            const cardElement =
-                e.target.closest(".card");
-
-            if (!cardElement) {
-                return;
-            }
-
-            if (state.isDropped) {
-                return;
-            }
-
-            let found = false;
-
-            for (
-                let g = 0;
-                g < state.groups.length;
-                g++
-            ) {
-
-                const cards =
-                    document.querySelectorAll(
-                        "#group" + g + " .card"
-                    );
-
-                cards.forEach(
-                    (cardEl, index) => {
-
-                        if (
-                            cardEl === cardElement
-                        ) {
-
-                            dragCardData = {
-                                card:
-                                    state.groups[g][index],
-                                group: g,
-                                index: index
-                            };
-
-                            found = true;
-                        }
-                    }
-                );
-
-                if (found) {
-                    break;
-                }
-            }
-
-            if (!dragCardData) {
-                return;
-            }
-
-            dragType = "HAND_CARD";
-
-            createGhost(
-                dragCardData.card,
-                e.clientX,
-                e.clientY
-            );
-
-            cardElement.setPointerCapture(
-                e.pointerId
-            );
-        }
-    );
-
-    hand.addEventListener(
-        "pointermove",
-        function (e) {
-
-            if (dragType !== "HAND_CARD") {
-                return;
-            }
-
-            moveGhost(
-                e.clientX,
-                e.clientY
-            );
-        }
-    );
-
-    hand.addEventListener(
-    "pointerup",
-    async function (e) {
-
-        if (
-            dragType !== "HAND_CARD" ||
-            !dragCardData
-        ) {
-            return;
-        }
-
-        let handled = false;
-
-        /*
-        =====================================
-        1. HAND CARD -> OPEN PILE
-        =====================================
-        */
-
-        if (
-            isInside(
-                openVisual,
-                e.clientX,
-                e.clientY
-            )
-        ) {
-
-            state.selectedCard = {
-                card: dragCardData.card,
-                group: dragCardData.group,
-                index: dragCardData.index
-            };
-
-            await discard();
-
-            handled = true;
-        }
-
-        /*
-        =====================================
-        2. HAND CARD -> ANOTHER GROUP
-        =====================================
-        */
-
-        if (!handled) {
-
-            for (let targetGroup = 0; targetGroup < 5; targetGroup++) {
-
-                const groupEl =
-                    document.getElementById(
-                        "group" + targetGroup
-                    );
-
-                if (!groupEl) {
-                    continue;
-                }
-
-                if (
-                    isInside(
-                        groupEl,
-                        e.clientX,
-                        e.clientY
-                    )
-                ) {
-
-                    const sourceGroup =
-                        dragCardData.group;
-
-                    const sourceIndex =
-                        dragCardData.index;
-
-                    const cardToMove =
-                        dragCardData.card;
-
-                    /*
-                     Same group dropped into empty area:
-                     do nothing for now.
-                    */
-                    if (sourceGroup === targetGroup) {
-
-    const targetCards =
-        groupEl.querySelectorAll(".card");
-
-    let targetIndex = -1;
-
-    targetCards.forEach((cardEl, index) => {
-
-        const rect =
-            cardEl.getBoundingClientRect();
-
-        if (
-            e.clientX >= rect.left &&
-            e.clientX <= rect.right &&
-            e.clientY >= rect.top &&
-            e.clientY <= rect.bottom
-        ) {
-            targetIndex = index;
-        }
-    });
-
-    if (
-        targetIndex !== -1 &&
-        targetIndex !== sourceIndex
-    ) {
-
-        const movedCard =
-            state.groups[sourceGroup]
-                .splice(
-                    sourceIndex,
-                    1
-                )[0];
-
-        if (sourceIndex < targetIndex) {
-            targetIndex--;
-        }
-
-        state.groups[targetGroup]
-            .splice(
-                targetIndex,
-                0,
-                movedCard
-            );
-
-        state.selectedCard = null;
-
-        renderHand();
-        calculateDealScore();
-    }
-
-    handled = true;
-    break;
-}
-
-                    /*
-                     Remove from source group
-                    */
-
-                    state.groups[sourceGroup]
-                        .splice(
-                            sourceIndex,
-                            1
-                        );
-
-                    /*
-                     Add to target group
-                    */
-
-                    state.groups[targetGroup]
-                        .push(
-                            cardToMove
-                        );
-
-                    state.selectedCard = null;
-
-                    renderHand();
-                    calculateDealScore();
-
-                    handled = true;
-                    break;
-                }
-            }
-        }
-
-        dragType = null;
-        dragCardData = null;
-
-        removeGhost();
-    }
-);
-}
-
 // =========================
 // RENDER HAND
 // =========================
@@ -687,7 +170,7 @@ function renderHand() {
 
         groupEl.innerHTML =
             `<div class="group-title">
-                G${g + 1}
+                Group ${g + 1}
              </div>`;
 
         if(!state.groups[g]) {
@@ -1010,48 +493,6 @@ async function onObservationTimerExpired()
 }
 
 
-function resetSettlementControls() {
-
-    const acceptBtn =
-        document.getElementById(
-            "btnSettlementAccept"
-        );
-
-    const cancelBtn =
-        document.getElementById(
-            "btnSettlementCancel"
-        );
-
-    const statusEl =
-        document.getElementById(
-            "settlementStatus"
-        );
-
-    const popup =
-        document.getElementById(
-            "settlementPopup"
-        );
-
-    if (acceptBtn) {
-        acceptBtn.disabled = false;
-    }
-
-    if (cancelBtn) {
-        cancelBtn.disabled = false;
-    }
-
-    if (statusEl) {
-        statusEl.innerText = "";
-    }
-
-    if (popup) {
-        popup.style.display = "none";
-    }
-
-    state.settlementOpened = false;
-    state.settlementId = null;
-}
-
 async function startNextDeal()
 {
     if (state.tableCompleted)
@@ -1059,7 +500,6 @@ async function startNextDeal()
         return;
     }
 
-    closeSettlementPopup();
     // --------------------------------------------------
     // ELIMINATED PLAYER
     // They do not start the next deal,
@@ -1687,34 +1127,6 @@ function renderDealHistory(historyRows) {
     );
 }
 
-
-function showRTDebug(message) {
-
-    let el = document.getElementById("rtDebug");
-
-    if (!el) {
-
-        el = document.createElement("div");
-        el.id = "rtDebug";
-
-        el.style.position = "fixed";
-        el.style.top = "45px";
-        el.style.left = "5px";
-        el.style.zIndex = "999999";
-
-        el.style.background = "#ff0000";
-        el.style.color = "#ffffff";
-
-        el.style.padding = "5px 8px";
-        el.style.fontSize = "12px";
-        el.style.fontWeight = "bold";
-
-        document.body.appendChild(el);
-    }
-
-    el.innerText = message;
-}
-
 function openHistoryPopup() {
 
     const popup =
@@ -1991,14 +1403,10 @@ function subscribeRealtime() {
         return;
     }
 
-   
-
     supabaseClient
         .channel(
             "game-session-" +
-            state.sessionId +
-            "-" +
-            state.userId
+            state.sessionId
         )
         .on(
             "postgres_changes",
@@ -2012,10 +1420,29 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-                    showRTDebug(
-                        "EVENT RECEIVED"
-                    );
+                console.log(
+                    "SESSION REALTIME RECEIVED:",
+                    {
+                        currentTurn:
+                            payload.new?.current_turn_seat,
 
+                        turnEndAt:
+                            payload.new?.turn_end_at,
+
+                        dealNo:
+                            payload.new?.deal_no,
+
+                        declarationStarted:
+                            payload.new?.declaration_started,
+
+                        dealResultsReady:
+                            payload.new?.deal_results_ready
+                    }
+                );
+
+                // ------------------------------------------
+                // Avoid overlapping refreshes
+                // ------------------------------------------S
 
                 if (sessionRefreshPending) {
                     return;
@@ -2027,7 +1454,22 @@ function subscribeRealtime() {
 
                     try {
 
+                        // ----------------------------------
+                        // This loads authoritative session:
+                        // dealer
+                        // current turn
+                        // turn_end_at
+                        // declaration state
+                        // observation/result state
+                        // dynamic seat
+                        // players
+                        // ----------------------------------
+
                         await loadSessionInfo();
+
+                        // Normally loadSessionInfo already
+                        // calls this, but keeping once here
+                        // is safe.
                         updateActionButtons();
 
                     }
@@ -2047,20 +1489,13 @@ function subscribeRealtime() {
                 }, 300);
             }
         )
-        .subscribe((status, err) => {
-
-            showRTDebug(
-                "RT: " + status +
-                (err
-                    ? " | " + (err.message || JSON.stringify(err))
-                    : "")
-            );
+        .subscribe((status) => {
 
             console.log(
-                "Realtime status:",
-                status,
-                err
+                "SESSION REALTIME STATUS:",
+                status
             );
+
         });
 }
 
@@ -2153,225 +1588,88 @@ async function handleTableCompleted(data)
 
 async function showTableCompletedScreen(data)
 {
+
+
+    const {
+        data: resultData,
+        error
+    } =
+    await supabaseClient.rpc(
+        "crdg_get_table_final_result",
+        {
+            p_session_id: state.sessionId
+        }
+    );
+
+
+    if(error)
+    {
+        console.error(
+            "Final result error:",
+            error
+        );
+
+        return;
+    }
+
     const tbody =
         document.getElementById(
             "finalScoreBody"
         );
 
-    if (!tbody) {
-        return;
-    }
 
     tbody.innerHTML = "";
 
 
-    // ==================================================
-    // SETTLEMENT COMPLETION
-    // ==================================================
+    resultData.forEach(
+        player =>
+        {
 
-    if (
-        data.completion_type ===
-        "SETTLEMENT"
-    )
-    {
-        const {
-            data: settlementData,
-            error: settlementError
-        } =
-        await supabaseClient.rpc(
-            "crdg_get_settlement_final_result",
+            const tr =
+                document.createElement(
+                    "tr"
+                );
+
+
+            if(player.is_winner)
             {
-                p_session_id:
-                    state.sessionId
+                tr.classList.add(
+                    "winner-row"
+                );
             }
-        );
 
 
-        if (settlementError)
-        {
-            console.error(
-                "Settlement final result error:",
-                settlementError
-            );
+            tr.innerHTML =
 
-            return;
-        }
-
-
-        if (
-            settlementData &&
-            settlementData.length > 0
-        )
-        {
-            settlementData.forEach(
-                player =>
-                {
-                    const tr =
-                        document.createElement(
-                            "tr"
-                        );
-
-
-                    tr.classList.add(
-                        "winner-row"
-                    );
-
-
-                    tr.innerHTML =
-                    `
-                    <td>
-                        🏆 ${player.display_name}
-                    </td>
-
-                    <td>
-                        ${player.final_score}
-                    </td>
-
-                    <td>
-                        WINNER - ${player.settlement_percentage}%
-                    </td>
-                    `;
-
-
-                    tbody.appendChild(
-                        tr
-                    );
+            `
+            <td>
+                ${
+                    player.is_winner
+                    ? "🏆 "
+                    : ""
                 }
-            );
-        }
-        else
-        {
-            console.warn(
-                "No settlement final result found"
-            );
-        }
-    }
+                ${player.display_name}
+            </td>
 
+            <td>
+                ${player.final_score}
+            </td>
 
-    // ==================================================
-    // NORMAL TABLE COMPLETION
-    // ==================================================
-
-    else
-    {
-        const {
-            data: resultData,
-            error
-        } =
-        await supabaseClient.rpc(
-            "crdg_get_table_final_result",
-            {
-                p_session_id:
-                    state.sessionId
-            }
-        );
-
-
-        if(error)
-        {
-            console.error(
-                "Final result error:",
-                error
-            );
-
-            return;
-        }
-
-
-        if (
-            resultData &&
-            resultData.length > 0
-        )
-        {
-            resultData.forEach(
-                player =>
-                {
-                    const tr =
-                        document.createElement(
-                            "tr"
-                        );
-
-
-                    if(player.is_winner)
-                    {
-                        tr.classList.add(
-                            "winner-row"
-                        );
-                    }
-
-
-                    tr.innerHTML =
-                    `
-                    <td>
-                        ${
-                            player.is_winner
-                            ? "🏆 "
-                            : ""
-                        }
-
-                        ${player.display_name}
-                    </td>
-
-                    <td>
-                        ${player.final_score}
-                    </td>
-
-                    <td>
-                        ${
-                            player.is_winner
-                            ? "WINNER"
-                            : "PLAYER"
-                        }
-                    </td>
-                    `;
-
-
-                    tbody.appendChild(
-                        tr
-                    );
+            <td>
+                ${
+                    player.is_winner
+                    ? "WINNER"
+                    : "PLAYER"
                 }
-            );
+            </td>
+            `;
+
+
+            tbody.appendChild(tr);
+
         }
-        else
-        {
-            console.warn(
-                "No normal final result found"
-            );
-        }
-    }
+    );
 
-
-    // ==================================================
-    // CLOSE OTHER POPUPS / MODALS
-    // ==================================================
-
-    const settlementPopup =
-        document.getElementById(
-            "settlementPopup"
-        );
-
-    if (settlementPopup)
-    {
-        settlementPopup.style.display =
-            "none";
-    }
-
-
-    const dealResultModal =
-        document.getElementById(
-            "dealResultModal"
-        );
-
-    if (dealResultModal)
-    {
-        dealResultModal.style.display =
-            "none";
-    }
-
-
-    // ==================================================
-    // SHOW TABLE COMPLETION SCREEN
-    // ==================================================
 
     const screen =
         document.getElementById(
@@ -2381,12 +1679,10 @@ async function showTableCompletedScreen(data)
 
     if(screen)
     {
-        screen.style.display =
-            "flex";
+        screen.style.display = "flex";
     }
+
 }
-
-
 async function loadSessionInfo() {
 
     if (state.tableCompleted) {
@@ -2574,7 +1870,6 @@ document.getElementById("jokerVisual").innerText =
         if (
             data.deal_results_ready === true &&
             !state.resultWindowOpened &&
-            state.participatedInDeal === true &&
             !state.ignoreResultWindow
         )
         {
@@ -2590,11 +1885,7 @@ document.getElementById("jokerVisual").innerText =
 
             hideBaseTableHand();
 
-            resetSettlementControls();
-
             loadDealResults();
-
-            await checkSettlementEligibility();
 
             const {
                 data: observationEndAt,
@@ -2625,50 +1916,6 @@ document.getElementById("jokerVisual").innerText =
 
    updateActionButtons();
    
-}
-
-async function loadAcceptedSettlement()
-{
-    const { data, error } =
-        await supabaseClient
-            .from("crdg_settlement")
-            .select(`
-                player1_user_id,
-                player2_user_id,
-                player1_percentage,
-                player2_percentage,
-                player1_score,
-                player2_score,
-                status
-            `)
-            .eq(
-                "session_id",
-                state.sessionId
-            )
-            .eq(
-                "status",
-                "ACCEPTED"
-            )
-            .order(
-                "settlement_id",
-                {
-                    ascending: false
-                }
-            )
-            .limit(1)
-            .maybeSingle();
-
-    if (error)
-    {
-        console.error(
-            "Settlement result error:",
-            error
-        );
-
-        return null;
-    }
-
-    return data;
 }
 
 function startDeclarationTimer() {
@@ -2732,118 +1979,6 @@ function startDeclarationTimer() {
         );
 }
 
-
-async function openSettlement() {
-
-    if (!state.settlementEligible) {
-        return;
-    }
-
-    const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_create_settlement_proposal",
-            {
-                p_session_id: state.sessionId
-            }
-        );
-
-    if (error) {
-
-        console.error(
-            "Settlement proposal error:",
-            error
-        );
-
-        alert(
-            "Unable to create settlement proposal."
-        );
-
-        return;
-    }
-
-    const proposal = data?.[0];
-
-    if (!proposal) {
-        return;
-    }
-
-    state.settlementId =
-        proposal.settlement_id;
-
-    state.settlementOpened = true;
-
-    document.getElementById(
-            "settlementPlayers"
-        ).innerHTML = `
-            <div style="
-                display:flex;
-                justify-content:space-between;
-                padding:10px;
-                font-size:18px;
-                border-bottom:1px solid #ddd;
-            ">
-                <b>${proposal.player1_name}</b>
-
-                <span style="
-                color:#000000;
-                font-weight:bold;
-            ">
-                ${proposal.player1_percentage}%
-            </span>
-            </div>
-
-            <div style="
-                display:flex;
-                justify-content:space-between;
-                padding:10px;
-                font-size:18px;
-            ">
-                <b>${proposal.player2_name}</b>
-
-                <span style="
-                color:#000000;
-                font-weight:bold;
-            ">
-                ${proposal.player2_percentage}%
-            </span>
-            </div>
-        `;
-
-    document.getElementById(
-        "settlementStatus"
-    ).innerText = "";
-
-    document.getElementById(
-        "settlementPopup"
-    ).style.display = "block";
-}
-
-
-function closeSettlementPopup() {
-
-    const popup =
-        document.getElementById(
-            "settlementPopup"
-        );
-
-    if (popup) {
-        popup.style.display = "none";
-    }
-
-    const status =
-        document.getElementById(
-            "settlementStatus"
-        );
-
-    if (status) {
-        status.innerText = "";
-    }
-
-    state.settlementOpened = false;
-    state.settlementId = null;
-    state.settlementEligible = false;
-}
-
 async function onDeclarationTimerExpired(){
 
     hideBaseTableHand();
@@ -2877,146 +2012,6 @@ async function onDeclarationTimerExpired(){
     }
 }
 
-async function respondSettlement(response) {
-
-    if (!state.sessionId || !state.userId) {
-        return;
-    }
-
-    const acceptBtn =
-        document.getElementById(
-            "btnSettlementAccept"
-        );
-
-    const cancelBtn =
-        document.getElementById(
-            "btnSettlementCancel"
-        );
-
-    // Prevent double-clicks
-    acceptBtn.disabled = true;
-    cancelBtn.disabled = true;
-
-    try {
-
-        const {
-            data,
-            error
-        } = await supabaseClient.rpc(
-            "crdg_respond_settlement",
-            {
-                p_session_id:
-                    state.sessionId,
-
-                p_user_id:
-                    state.userId,
-
-                p_response:
-                    response
-            }
-        );
-
-        if (error) {
-
-            console.error(
-                "Settlement response error:",
-                error
-            );
-
-            acceptBtn.disabled = false;
-            cancelBtn.disabled = false;
-
-            return;
-        }
-
-        const result =
-            data?.[0];
-
-        if (!result) {
-
-            acceptBtn.disabled = false;
-            cancelBtn.disabled = false;
-            return;
-        }
-
-
-        // ------------------------------------------
-        // CANCEL
-        // ------------------------------------------
-
-        if (
-            result.status ===
-            "CANCELLED"
-        ) {
-
-            document.getElementById(
-                "settlementStatus"
-            ).innerText =
-                "Settlement cancelled";
-
-            setTimeout(() => {
-
-                document.getElementById(
-                    "settlementPopup"
-                ).style.display =
-                    "none";
-
-            }, 700);
-
-            return;
-        }
-
-
-        // ------------------------------------------
-        // BOTH ACCEPTED
-        // ------------------------------------------
-
-        if (
-            result.status ===
-            "ACCEPTED"
-        ) {
-
-            document.getElementById(
-                "settlementStatus"
-            ).innerText =
-                "Settlement accepted";
-
-            return;
-        }
-
-
-        // ------------------------------------------
-        // ONE PLAYER ACCEPTED
-        // ------------------------------------------
-
-        if (
-            result.status ===
-            "PENDING"
-        ) {
-
-            document.getElementById(
-                "settlementStatus"
-            ).innerText =
-                "Accepted — waiting for other player";
-
-            // This player has already accepted.
-            // Do not allow changing response.
-            acceptBtn.disabled = true;
-            cancelBtn.disabled = true;
-        }
-
-    }
-    catch (error) {
-
-        console.error(
-            "Settlement unexpected error:",
-            error
-        );
-
-        acceptBtn.disabled = false;
-        cancelBtn.disabled = false;
-    }
-}
 
 function getTotalCards(){
 
@@ -3186,7 +2181,6 @@ async function loadGame() {
   state.hand = data.hand || [];
   
   state.playerStatus = data.player_status;
-  state.participatedInDeal =   data.participated_in_deal === true;
 
   if (state.playerStatus === "ELIMINATED" && !state.eliminatedRefreshStarted)
 {
@@ -4219,48 +3213,6 @@ function getCardValue(card) {
     }
 
     return parseInt(rank) || 0;
-}
-
-async function checkSettlementEligibility() {
-
-    if (!state.sessionId) {
-        return;
-    }
-
-    const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_check_settlement_eligibility",
-            {
-                p_session_id: state.sessionId
-            }
-        );
-
-    if (error) {
-        console.error(
-            "Settlement eligibility error:",
-            error
-        );
-        return;
-    }
-
-    const result = data?.[0];
-
-    state.settlementEligible =
-        result?.eligible === true;
-
-    const btn =
-        document.getElementById(
-            "btnSettlement"
-        );
-
-    if (!btn) {
-        return;
-    }
-
-    btn.style.display =
-        state.settlementEligible
-            ? "inline-block"
-            : "none";
 }
 
 

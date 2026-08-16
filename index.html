@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1,user-scalable=no, viewport-fit=cover"
+    content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
   >
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#06121a">
   <title>CRDG Rummy</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="history.css">
@@ -83,8 +83,7 @@
 
                 <div
                     id="openVisual"
-                    class="table-card clickable-pile"
-                    draggable="true">
+                    class="table-card clickable-pile">
                     -
                 </div>
 
@@ -207,129 +206,10 @@
         Next Deal in: <span id="observationTimer">30</span>
       </div>
 
-       <button
-        id="btnSettlement"
-        onclick="openSettlement()"
-        style="display:none;"> Settlement
-       </button>
-
       <div id="resultJokerCard"></div>
       <div id="dealResultsContainer"></div>
     </div>
   </section>
-
-
-  <div
-    id="settlementPopup"
-    style="
-        display:none;
-        position:fixed;
-        inset:0;
-        background:rgba(0,0,0,0.65);
-        z-index:9999;
-        align-items:center;
-        justify-content:center;
-    "
->
-    <div
-        
-        style="
-            width:340px;
-            max-width:90%;
-            background:#ffffff;
-            color:#000000;
-            border-radius:14px;
-            padding:20px;
-            box-shadow:0 8px 30px rgba(0,0,0,0.35);
-            text-align:center;
-        "
-    >
-
-        <div
-            style="
-                font-size:22px;
-                font-weight:bold;
-                color:#1565c0;
-                margin-bottom:15px;
-            "
-        >
-            Settlement
-        </div>
-
-        <div
-            style="
-                font-size:14px;
-                color:#555;
-                margin-bottom:15px;
-            "
-        >
-            Proposed Settlement
-        </div>
-
-        <div
-            id="settlementPlayers"
-            style="
-                background:#f5f7fa;
-                border-radius:10px;
-                padding:12px;
-                margin-bottom:18px;
-            "
-        ></div>
-
-        <div
-            id="settlementStatus"
-            style="
-                min-height:24px;
-                margin-bottom:12px;
-                font-weight:bold;
-                color:#1565c0;
-            "
-        ></div>
-
-        <div
-            style="
-                display:flex;
-                gap:12px;
-                justify-content:center;
-            "
-        >
-
-            <button
-                id="btnSettlementAccept"
-                onclick="respondSettlement('ACCEPT')"
-                style="
-                    background:#2e7d32;
-                    color:white;
-                    border:none;
-                    border-radius:8px;
-                    padding:10px 22px;
-                    font-weight:bold;
-                    cursor:pointer;
-                "
-            >
-                Accept
-            </button>
-
-            <button
-                id="btnSettlementCancel"
-                onclick="respondSettlement('CANCEL')"
-                style="
-                    background:#c62828;
-                    color:white;
-                    border:none;
-                    border-radius:8px;
-                    padding:10px 22px;
-                    font-weight:bold;
-                    cursor:pointer;
-                "
-            >
-                Cancel
-            </button>
-
-        </div>
-
-    </div>
-</div>
   
   <!-- TABLE COMPLETED -->
   <section id="tableCompletedScreen">
@@ -353,41 +233,6 @@
       <p>Thank you for playing</p>
     </div>
   </section>
-
-    <div
-        id="settlementPopup"
-        class="settlement-popup"
-        style="display:none;"
-    >
-        <div class="settlement-box">
-
-            <h3>Settlement</h3>
-
-            <div id="settlementPlayers"></div>
-
-            <div class="settlement-actions">
-
-                <button
-                    id="btnSettlementAccept"
-                    onclick="respondSettlement('ACCEPT')"
-                >
-                    Accept
-                </button>
-
-                <button
-                    id="btnSettlementCancel"
-                    onclick="respondSettlement('CANCEL')"
-                >
-                    Cancel
-                </button>
-
-            </div>
-
-            <div id="settlementStatus"></div>
-
-        </div>
-    </div>
-
 
   <div id="historyPopup" class="history-popup hidden">
 
