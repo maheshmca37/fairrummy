@@ -1982,9 +1982,11 @@ function subscribeRealtime() {
             },
             (payload) => {
 
-            alert("1. Realtime ENTERED");
-            alert("2. sessionRefreshPending:" + sessionRefreshPending);
-
+            alert(
+    "Realtime ENTERED\n" +
+    "sessionRefreshPending = " +
+    String(sessionRefreshPending)
+);
             // ------------------------------------------
             // Avoid overlapping refreshes
             // ------------------------------------------
@@ -1996,23 +1998,23 @@ function subscribeRealtime() {
 
             sessionRefreshPending = true;
 
-            alert("3. Pending SET TRUE");
+            //alert("3. Pending SET TRUE");
 
             setTimeout(async () => {
 
-                alert("4. setTimeout ENTERED");
+              //  alert("4. setTimeout ENTERED");
 
                 try {
 
-                    alert("5. BEFORE loadSessionInfo");
+                   // alert("5. BEFORE loadSessionInfo");
 
                     await loadSessionInfo();
 
-                    alert("6. AFTER loadSessionInfo");
+                   // alert("6. AFTER loadSessionInfo");
 
                     updateActionButtons();
 
-                    alert("7. AFTER updateActionButtons");
+                   // alert("7. AFTER updateActionButtons");
 
                     alert("8. Realtime EXIT");
 
@@ -2034,11 +2036,6 @@ function subscribeRealtime() {
 
                     sessionRefreshPending = false;
 
-                    alert(
-                        "9. FINALLY\n" +
-                        "Pending = " +
-                        sessionRefreshPending
-                    );
                 }
 
             }, 300);
