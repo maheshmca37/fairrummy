@@ -2051,7 +2051,16 @@ function subscribeRealtime() {
             }, 300);
 }
         )
-        .subscribe((status) => {
+        .subscribe((status, err) => {
+
+            alert(
+                "SESSION REALTIME STATUS:\n" +
+                status +
+                "\n\nERROR:\n" +
+                (err
+                    ? JSON.stringify(err)
+                    : "none")
+            );
 
         });
 }
