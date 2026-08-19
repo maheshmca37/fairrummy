@@ -66,6 +66,7 @@ let state = {
   settlementEligible: false,
   settlementId: null,
   settlementOpened: false,
+  pickedCard: null,
   participatedInDeal : false
 };
 
@@ -859,6 +860,16 @@ function renderHand() {
                 );
             }
 
+            // NEWLY PICKED CARD HIGHLIGHT
+            if (
+                state.pickedCard &&
+                state.pickedCard.group === g &&
+                state.pickedCard.index === index
+            ) {
+                div.classList.add("picked-card");
+            }
+
+
             // SELECTED CARD
 
             if(
@@ -875,14 +886,33 @@ function renderHand() {
 
             div.onclick = () => {
 
-                   if(state.isDropped)
-                    {     return;   }
+                if (state.isDropped) {
+                    return;
+                }
 
-                state.selectedCard = {
-                    card: card,
-                    group: g,
-                    index: index
-                };
+                // Any click removes "newly picked" highlight
+                state.pickedCard = null;
+
+                // If same exact card is already selected,
+                // clicking it again deselects it
+                if (
+                    state.selectedCard &&
+                    state.selectedCard.group === g &&
+                    state.selectedCard.index === index
+                ) {
+
+                    state.selectedCard = null;
+
+                }
+                else {
+
+                    state.selectedCard = {
+                        card: card,
+                        group: g,
+                        index: index
+                    };
+
+                }
 
                 renderHand();
                 calculateDealScore();
@@ -1776,6 +1806,12 @@ async function draw(source) {
   if (card) {
 
     state.groups[4].push(card);
+
+    state.pickedCard = {
+        card: card,
+        group: 4,
+        index: state.groups[4].length - 1
+    };
 
     //await loadSessionInfo();
     renderHand();
