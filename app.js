@@ -2409,6 +2409,30 @@ async function showTableCompletedScreen(data)
 }
 
 
+function getTableCardHTML(card) {
+
+    if (!card || card === "-") {
+        return "-";
+    }
+
+    // Printed joker
+    if (card === "JOKER") {
+        return `
+            <span class="printed-joker-text">JOKER</span>
+            <span class="joker-star">★</span>
+        `;
+    }
+
+    const suit = card.slice(-1);
+    const rank = card.slice(0, -1);
+
+    return `
+        <span class="card-rank">${rank}</span>
+        <span class="card-suit">${suit}</span>
+    `;
+}
+
+
 async function loadSessionInfo() {
 
     if (state.tableCompleted) {
@@ -2492,35 +2516,41 @@ async function loadSessionInfo() {
     const topOpenCard =
         data.open_pile?.slice(-1)[0];
 
-    document.getElementById("openVisual").innerText =
-        topOpenCard || "-";
-
     const openEl =
         document.getElementById("openVisual");
 
+    openEl.innerHTML =
+        getTableCardHTML(topOpenCard || "-");
+
     openEl.classList.remove("red-card");
 
-    if(
+    if (
         topOpenCard?.includes("♥") ||
         topOpenCard?.includes("♦")
-    ){
+    ) {
         openEl.classList.add("red-card");
     }
-document.getElementById("jokerVisual").innerText =
-    data.joker_card || "-";
-
-  const jokerEl =
-    document.getElementById("jokerVisual");
 
 
-      jokerEl.classList.remove("red-card");
+    // JOKER CARD
 
-      if(
-          data.joker_card?.includes("♥") ||
-          data.joker_card?.includes("♦")
-      ){
-          jokerEl.classList.add("red-card");
-      }
+    const jokerCard =
+        data.joker_card || "-";
+
+    const jokerEl =
+        document.getElementById("jokerVisual");
+
+    jokerEl.innerHTML =
+        getTableCardHTML(jokerCard);
+
+    jokerEl.classList.remove("red-card");
+
+    if (
+        jokerCard?.includes("♥") ||
+        jokerCard?.includes("♦")
+    ) {
+        jokerEl.classList.add("red-card");
+    }
 
     state.jokerCard = data.joker_card;
     state.wildRank  = data.wild_rank;

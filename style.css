@@ -31,13 +31,10 @@ html {
     overflow-y: auto;
 }
 
-body {
-    min-height: 100dvh;
-    overflow: visible;
-}
 
 body {
   min-height: 100dvh;
+  overflow: visible;
   font-family: Arial, sans-serif;
   color: var(--text);
   background: #000;
@@ -312,7 +309,7 @@ button {
 
     gap: 22px;
 
-    min-height: 115px;
+    min-height: 130px;
     margin: 0 0 8px;
 
     position: relative;
@@ -322,16 +319,16 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right:28px;
+    margin-right:50px;
 }
 
 .stock-area {
     position: relative;
 
-    width: 120px;
-    height: 110px;
+    width: 140px;
+    height: 125px;
 
-    flex: 0 0 120px;
+    flex: 0 0 140px;
 }
 
 
@@ -374,25 +371,25 @@ button {
 }
 
 .card-back {
-    width: 59px;
-    height: 90px;
+    width: 78px;
+    height: 108px;
 
     position: absolute;
 
-    top: 25px;
+    top: 12px;
     left: 45px;
 
     background: #244a73;
 
     border: 2px solid white;
-    border-radius: 8px;
+    border-radius: 10px;
 
     z-index: 2;
 }
 
 .table-card {
-    width: 64px;
-    height: 92px;
+    width: 82px;
+    height: 112px;
 
     background: white;
     color: black;
@@ -403,14 +400,8 @@ button {
     justify-content: center;
     align-items: center;
 
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 900;
-}
-
-.stock-area {
-  position: relative;
-  width: 120px;
-  height: 104px;
 }
 
 .joker-card {
@@ -420,14 +411,6 @@ button {
   z-index: 1;
 }
 
-.card-back {
-  position: absolute;
-  top: 23px;
-  left: 37px;
-  z-index: 2;
-  border: 2px solid white;
-  background: #244a73;
-}
 
 .card-back::after {
   content: "🂠";
@@ -531,19 +514,19 @@ button {
 }
 
 .player-discard-button {
-    min-width: 90px;
-    height: 38px;
+    min-width: 140px;
+    height: 56px;
 
-    padding: 0 16px;
+    padding: 0 28px;
 
     border: none;
-    border-radius: 7px;
+    border-radius: 9px;
 
     background: #1e90ff;
     color: white;
 
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 23px;
+    font-weight: 900;
 
     cursor: pointer;
 
@@ -579,16 +562,16 @@ button {
     justify-content: center;
     align-items: flex-start;
 
-    gap: 6px;
+    gap: 4px;
 
     width: 100%;
+    max-width: none;
 
-    padding: 4px 6px 8px;
+    margin: 0;
+    padding: 4px 0 8px;
 
     box-sizing: border-box;
-
-    overflow-x: visible;
-    overflow-y: visible;
+    overflow: visible;
 }
 
 
@@ -609,7 +592,7 @@ button {
 
     gap: 4px;
 
-    padding: 26px 6px 6px;
+    padding: 24px 6px 6px;
 
     border: 1px solid #555;
     border-radius: 8px;
@@ -642,18 +625,15 @@ button {
 }
 
 
-.group-box {
-    padding-top: 24px;
-}
 
 .card {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    width: 85px;
+    min-width: 85px;
+    max-width: 85px;
 
-    height: 118px;
+    height: 125px;
 
-    flex: 0 0 60px;
+    flex: 0 0 85px;
     flex-shrink: 0;
 
     background: #fff;
@@ -664,9 +644,10 @@ button {
 
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
 
-    text-align: center;
+    padding-left: 6px;
+    text-align: left;
 
     font-size: 20px;
     font-weight: 900;
@@ -687,17 +668,6 @@ button {
         transform 0.18s ease,
         box-shadow 0.18s ease,
         opacity 0.18s ease;
-}
- .card {
-    position: relative;
-
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-
-    padding-left: 6px;
-
-    text-align: left;
 }
 
 .card-rank {
@@ -1067,42 +1037,6 @@ button {
   font-weight: 700;
 }
 
-/* SMALL DIALOGS */
-@media (max-width: 700px) {
-  .lobby-card,
-  .lobby-player-list,
-  .groups {
-    grid-template-columns: 1fr;
-  }
-
-  .winner-card {
-    padding: 20px 14px;
-  }
-
-  .winner-card h1 {
-    font-size: 24px;
-  }
-
-  .result-header {
-    font-size: 18px;
-  }
-}
-
-
-html,
-body {
-    margin: 0;
-    padding: 0;
-    min-width: 100%;
-    min-height: 100%;
-}
-
-body {
-    font-family: Arial, sans-serif;
-    background: #000;
-    color: white;
-}
-
 /* Laptop and desktop */
 @media (min-width: 901px) {
     html,
@@ -1128,61 +1062,13 @@ body {
     }
 }
 
-/* Mobile */
+
+/* Mobile group spacing */
 @media (max-width: 900px) {
-
-    .hand {
-        display: flex;
-        flex-wrap: nowrap;
-
-        justify-content: center;
-        align-items: flex-start;
-
-        gap: 3px;
-
-        width: 100%;
-
-        padding: 4px 2px 8px;
-
-        box-sizing: border-box;
-
-        overflow: visible;
-    }
-
     .group-box {
-        width: max-content;
-        min-width: 58px;
-
-        min-height: 150px;
-        height: auto;
-
-        display: inline-flex;
-        flex-wrap: nowrap;
-
-        align-items: flex-start;
-
+        min-width: 68px;
         gap: 3px;
-
-        padding: 24px 4px 6px;
-
-        flex: 0 0 auto;
-
-        position: relative;
-
-        overflow: visible;
-
-        box-sizing: border-box;
-    }
-
-    .card {
-        width: 60px;
-        min-width: 60px;
-        max-width: 60px;
-
-        height: 118px;
-
-        flex: 0 0 60px;
-        flex-shrink: 0;
+        padding: 24px 5px 6px;
     }
 }
 
@@ -1225,95 +1111,6 @@ body.mobile-game-mode .game-stage {
     overflow: hidden;
 }
 
-@media (max-width: 900px) {
-
-    .hand {
-        display: flex;
-        flex-wrap: nowrap;
-
-        justify-content: center;
-        align-items: flex-start;
-
-        gap: 4px;
-
-        width: 100%;
-
-        padding: 4px 4px 8px;
-
-        box-sizing: border-box;
-
-        overflow: visible;
-    }
-
-    .group-box {
-        width: max-content;
-        min-width: 68px;
-
-        min-height: 150px;
-        height: auto;
-
-        display: inline-flex;
-        flex-wrap: nowrap;
-
-        align-items: flex-start;
-
-        gap: 3px;
-
-        padding: 24px 5px 6px;
-
-        flex: 0 0 auto;
-
-        overflow: visible;
-    }
-
-   .card {
-    width: 88px;
-    min-width: 88px;
-    max-width: 88px;
-
-    height: 118px;
-
-    flex: 0 0 88px;
-    flex-shrink: 0;
-}
-
-  .card {
-    position: relative;
-
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-
-    padding-left: 6px;
-
-    text-align: left;
-}
-
-
-
-}
-
-.hand {
-    width: 100%;
-    max-width: none;
-
-    margin-left: 0;
-    margin-right: 0;
-
-    padding-left: 0;
-    padding-right: 0;
-
-    display: flex;
-    flex-wrap: nowrap;
-
-    justify-content: center;
-    align-items: flex-start;
-
-    gap: 5px;
-
-    box-sizing: border-box;
-    overflow: visible;
-}
 
 .group-box:has(.card) {
     padding-right: 35px;
@@ -1355,5 +1152,11 @@ body.mobile-game-mode .game-stage {
     color: gold;
 
     line-height: 1;
+}
+
+#openVisual,
+#jokerVisual {
+    position: relative;
+    text-align: left;
 }
 /* The game itself is scaled by responsive.js. */
