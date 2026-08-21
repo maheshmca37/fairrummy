@@ -1252,16 +1252,16 @@ body.mobile-game-mode .game-stage {
         overflow: visible;
     }
 
-    .card {
-    width: 74px;
-    min-width: 74px;
-    max-width: 74px;
+   .card {
+    width: 88px;
+    min-width: 88px;
+    max-width: 88px;
 
-    height: 120px;
+    height: 118px;
 
-    flex: 0 0 74px;
+    flex: 0 0 88px;
     flex-shrink: 0;
-  }
+}
 
   .card {
     position: relative;
@@ -1275,6 +1275,30 @@ body.mobile-game-mode .game-stage {
     text-align: left;
 }
 
+
+
+}
+
+.hand {
+    width: 100%;
+    max-width: none;
+
+    margin-left: 0;
+    margin-right: 0;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    display: flex;
+    flex-wrap: nowrap;
+
+    justify-content: center;
+    align-items: flex-start;
+
+    gap: 5px;
+
+    box-sizing: border-box;
+    overflow: visible;
 }
 
 .group-box:has(.card) {
@@ -1302,6 +1326,6 @@ body.mobile-game-mode .game-stage {
 }
 
 .group-box .card + .card {
-    margin-left: -18px;
+    margin-left: -30px;
 }
 /* The game itself is scaled by responsive.js. */
