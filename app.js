@@ -824,14 +824,39 @@ function renderHand() {
 
             if (isJokerCard(card)) {
 
-                div.innerHTML = `
-                    <span class="card-value">
-                        ${card}
-                    </span>
-                    <span class="joker-star">
-                        ⭐
-                    </span>
-                `;
+                if (card === "JOKER") {
+
+                    // Printed joker
+                    div.innerHTML = `
+                        <span class="printed-joker-text">
+                            JOKER
+                        </span>
+
+                        <span class="joker-star">
+                            ★
+                        </span>
+                    `;
+
+                } else {
+
+                    // Deal joker
+                    const suit = card.slice(-1);
+                    const rank = card.slice(0, -1);
+
+                    div.innerHTML = `
+                        <span class="card-rank">
+                            ${rank}
+                        </span>
+
+                        <span class="card-suit">
+                            ${suit}
+                        </span>
+
+                        <span class="deal-joker-star">
+                            ★
+                        </span>
+                    `;
+                }
 
                 div.classList.add("joker-highlight");
 
