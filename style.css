@@ -556,14 +556,14 @@ button {
 ======================================== */
 
 .hand {
-    width: calc(100% + 36px);
+    width: 100%;
     max-width: none;
 
-    margin-left: -18px;
-    margin-right: -18px;
+    margin-left: 0;
+    margin-right: 0;
 
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-left: 6px;
+    padding-right: 6px;
 
     display: flex;
     flex-wrap: nowrap;
@@ -630,13 +630,13 @@ button {
 
 
 .card {
-    width: 85px;
-    min-width: 85px;
-    max-width: 85px;
+    width: 95px;
+    min-width: 95px;
+    max-width: 95px;
 
     height: 125px;
 
-    flex: 0 0 85px;
+    flex: 0 0 95px;
     flex-shrink: 0;
 
     background: #fff;
