@@ -634,7 +634,7 @@ button {
     min-width: 95px;
     max-width: 95px;
 
-    height: 125px;
+    height: 140px;
 
     flex: 0 0 95px;
     flex-shrink: 0;
@@ -1140,7 +1140,7 @@ body.mobile-game-mode .game-stage {
 }
 
 .group-box .card + .card {
-    margin-left: -17px;
+    margin-left: -11px;
 }
 
 .deal-joker-star {
