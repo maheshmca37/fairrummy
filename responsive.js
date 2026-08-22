@@ -99,12 +99,19 @@
      Scale width and height separately so the game
      occupies the complete available mobile screen.
     */
-   
-     const scaleX = viewportWidth / DESIGN_WIDTH;
-     const scaleY = viewportHeight / DESIGN_HEIGHT;
+     // Keep our game height fixed at 720,
+// but calculate the width required to fill
+// the complete mobile landscape viewport.
 
-/* FIT COMPLETE GAME INSIDE MOBILE SCREEN */
-    const scale = Math.min(scaleX, scaleY);
+        const mobileDesignWidth =
+            Math.max(
+                DESIGN_WIDTH,
+                DESIGN_HEIGHT *
+                (viewportWidth / viewportHeight)
+            );
+
+        const scale =
+            viewportHeight / DESIGN_HEIGHT;
 
 
     document.documentElement.classList.add("mobile-game-mode");
@@ -124,9 +131,14 @@
     stage.style.top = "50%";
     stage.style.left = "50%";
 
-    stage.style.width = `${DESIGN_WIDTH}px`;
-    stage.style.minWidth = `${DESIGN_WIDTH}px`;
-    stage.style.height = `${DESIGN_HEIGHT}px`;
+    stage.style.width =
+    `${mobileDesignWidth}px`;
+
+    stage.style.minWidth =
+        `${mobileDesignWidth}px`;
+
+    stage.style.height =
+        `${DESIGN_HEIGHT}px`;
 
     stage.style.transformOrigin = "center center";
 
