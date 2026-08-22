@@ -556,6 +556,15 @@ button {
 ======================================== */
 
 .hand {
+    width: calc(100% + 36px);
+    max-width: none;
+
+    margin-left: -18px;
+    margin-right: -18px;
+
+    padding-left: 4px;
+    padding-right: 4px;
+
     display: flex;
     flex-wrap: nowrap;
 
@@ -563,12 +572,6 @@ button {
     align-items: flex-start;
 
     gap: 4px;
-
-    width: 100%;
-    max-width: none;
-
-    margin: 0;
-    padding: 4px 0 8px;
 
     box-sizing: border-box;
     overflow: visible;
