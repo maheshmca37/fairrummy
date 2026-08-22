@@ -3420,32 +3420,114 @@ function getRank(card){
 // =========================
 async function joinTable() {
 
-  const tableId = document.getElementById("tableIdInput").value;
-  const password = document.getElementById("password").value;
+  const tableId = 777777;// document.getElementById("tableIdInput").value;
+  const password = '5E2D';//document.getElementById("password").value;
   const nickname = document.getElementById("nickname").value;
 
   // ✅ THIS IS WHERE IT GOES
   const userId = savedUserId;
 
-  const { data, error } = await supabaseClient.rpc('crdg_join_table', {
-    p_table_id: parseInt(tableId),
-    p_password: '5E2D',
-    p_user_id: userId,
-    p_display_name: nickname
-  });
+  const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_join_table",
+                {
+                    p_table_id: parseInt(tableId),
+                    p_password: password,
+                    p_user_id: userId,
+                    p_display_name: nickname
+                }
+            );
 
-  if (error || data?.[0]?.status === "fail") {
-    alert("❌ Invalid table or password");
-    return;
-  }
+        const joinResult = data?.[0];
 
-  // save state
-  state.userId = userId;
-  state.tableId = parseInt(tableId);
-  state.nickname = nickname;
-  state.seatNo = data[0].seat_no;
-  state.fixedSeatNo = data[0].seat_no;
-  state.joined = true;
+        if (error) {
+            console.error(error);
+            alert("Join failed");
+            return;
+        }
+
+        if (!joinResult) {
+            alert("Join failed");
+            return;
+        }
+
+        if (
+            joinResult.status !== "success" &&
+            joinResult.status !== "reconnected"
+        ) {
+            alert(
+                joinResult.message ||
+                "Unable to join table"
+            );
+
+            return;
+        }
+
+
+        // ------------------------------------------
+        // ONLY SUCCESS / RECONNECTED comes below
+        // ------------------------------------------
+
+        state.userId =
+            joinResult.user_id;
+
+        state.tableId =
+            parseInt(tableId);
+
+        state.nickname =
+            nickname;
+
+        state.seatNo =
+            Number(joinResult.seat_no);
+
+        state.fixedSeatNo =
+            Number(joinResult.fixed_seat_no);
+
+        localStorage.setItem(
+            "crdg_user_id",
+            state.userId
+        );
+
+        const isReconnect =
+            joinResult.status ===
+            "reconnected";
+
+        if (
+            isReconnect &&
+            joinResult.session_id
+        ) {
+            state.sessionId =
+                Number(joinResult.session_id);
+
+            state.joined = true;
+
+            document.getElementById(
+                "joinScreen"
+            ).style.display = "none";
+
+            document.getElementById(
+                "lobbyScreen"
+            ).style.display = "none";
+
+            document.getElementById(
+                "app"
+            ).style.display = "block";
+
+            await loadGame();
+            await loadSessionInfo();
+            await loadPlayers();
+
+           // subscribeRealtime();
+
+           // updateActionButtons();
+
+           // return;
+        }
+
+        // Otherwise continue existing lobby flow
+        state.joined = true;
+
+        // your existing lobby code continues here
 
   localStorage.setItem("crdg_table", tableId);
 
