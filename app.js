@@ -831,10 +831,6 @@ function renderHand() {
                         <span class="printed-joker-text">
                             JOKER
                         </span>
-
-                        <span class="joker-star">
-                            ★
-                        </span>
                     `;
 
                 } else {
@@ -2419,7 +2415,6 @@ function getTableCardHTML(card) {
     if (card === "JOKER") {
         return `
             <span class="printed-joker-text">JOKER</span>
-            <span class="joker-star">★</span>
         `;
     }
 
