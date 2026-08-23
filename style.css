@@ -744,9 +744,9 @@ button {
 }
 
 .joker-highlight {
-    border: 3px solid gold;
+    border: 4px solid rgb(219, 233, 24);
     box-shadow:
-        0 0 8px gold,
+        0 0 8px rgb(167, 192, 27),
         0 2px 5px rgba(0, 0, 0, 0.35);
 }
 .card.joker-highlight {
@@ -1140,7 +1140,7 @@ body.mobile-game-mode .game-stage {
 }
 
 .group-box .card + .card {
-    margin-left: -28px;
+    margin-left: -37px;
 }
 
 .printed-joker-text {
@@ -1162,13 +1162,13 @@ body.mobile-game-mode .game-stage {
 .deal-joker-star {
     position: absolute;
 
-    top: 68px;
+    top: 90px;
     left: 9px;
 
-    font-size: 22px;
+    font-size: 25px;
     font-weight: 900;
 
-    color: gold;
+    color: rgb(203, 14, 27);
 
     line-height: 1;
 }
