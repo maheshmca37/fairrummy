@@ -290,7 +290,7 @@ button {
     padding: 0;
     flex-shrink: 0;
 
-    margin-top: -10px;
+    margin-top: -27px;
 }
 
 /* ========================================
@@ -307,7 +307,7 @@ button {
     justify-content: center;
     align-items: center;
 
-    gap: 22px;
+    gap: 34px;
 
     min-height: 130px;
     margin: 0 0 8px;
@@ -319,34 +319,34 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right:50px;
+    margin-right:18px;
 }
 
 .stock-area {
     position: relative;
 
-    width: 140px;
-    height: 125px;
+    width: 165px;
+    height: 140px;
 
-    flex: 0 0 140px;
+    flex: 0 0 165px;
 }
 
 
 /* Buttons beside stock pile */
 
 .table-action-button {
-    min-width: 90px;
-    height: 42px;
+    min-width: 120px;
+    height: 54px;
 
-    padding: 0 16px;
+    padding: 0 24px;
 
     border: none;
-    border-radius: 7px;
+    border-radius: 9px;
 
     color: white;
 
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 800;
 
     cursor: pointer;
 
@@ -356,6 +356,7 @@ button {
 
 .declare-button {
     background: #1e90ff;
+    margin-right: 8px;
 }
 
 .declare-button:hover {
@@ -371,13 +372,13 @@ button {
 }
 
 .card-back {
-    width: 78px;
-    height: 108px;
+    width: 92px;
+    height: 128px;
 
     position: absolute;
 
-    top: 12px;
-    left: 45px;
+    top: 8px;
+    left: 54px;
 
     background: #244a73;
 
@@ -418,7 +419,7 @@ button {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 28px;
+  font-size: 42px;
 }
 
 .clickable-pile {
@@ -497,20 +498,21 @@ button {
     align-items: center;
     justify-content: center;
 
-    gap: 15px;
+    gap: 30px;
 
     min-height: 42px;
 }
 
 #myInfo {
-    font-size: 18px;
-    font-weight: 800;
+    font-size: 25px;
+    font-weight: 900;
 }
 
 #myScore,
 #dealScore {
-    font-size: 15px;
+    font-size: 30px;
     white-space: nowrap;
+     font-weight: 900;
 }
 
 .player-discard-button {
@@ -1177,5 +1179,18 @@ body.mobile-game-mode .game-stage {
 #jokerVisual {
     position: relative;
     text-align: left;
+}
+
+/* OPEN + JOKER TABLE CARDS */
+#openVisual,
+#jokerVisual {
+    width: 105px;
+    min-width: 105px;
+    height: 138px;
+
+    border-radius: 10px;
+
+    font-size: 32px;
+    font-weight: 900;
 }
 /* The game itself is scaled by responsive.js. */
