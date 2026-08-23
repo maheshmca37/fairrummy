@@ -584,9 +584,9 @@ button {
 
 .group-box {
     width: max-content;
-    min-width: 78px;
+    min-width: 112px;
 
-    min-height: 150px;
+    min-height: 195px;
 
     display: inline-flex;
     flex-wrap: nowrap;
@@ -630,13 +630,13 @@ button {
 
 
 .card {
-    width: 95px;
-    min-width: 95px;
-    max-width: 95px;
+    width: 112px;
+    min-width: 112px;
+    max-width: 112px;
 
-    height: 140px;
+    height: 165px;
 
-    flex: 0 0 95px;
+    flex: 0 0 112px;
     flex-shrink: 0;
 
     background: #fff;
@@ -676,10 +676,10 @@ button {
 .card-rank {
     position: absolute;
 
-    top: 8px;
-    left: 9px;
+    top: 11px;
+    left: 8px;
 
-    font-size: 28px;
+    font-size: 37px;
     font-weight: 900;
     line-height: 1;
 
@@ -689,10 +689,10 @@ button {
 .card-suit {
     position: absolute;
 
-    top: 38px;
-    left: 10px;
+    top: 52px;
+    left: 9px;
 
-    font-size: 30px;
+    font-size: 36px;
     font-weight: 900;
     line-height: 1;
 
@@ -1069,8 +1069,8 @@ button {
 /* Mobile group spacing */
 @media (max-width: 900px) {
     .group-box {
-        min-width: 68px;
-        gap: 3px;
+        min-width: 112px;
+        gap: 5px;
         padding: 24px 5px 6px;
     }
 }
@@ -1120,7 +1120,7 @@ body.mobile-game-mode .game-stage {
 }
 
 .group-box:not(:has(.card)) {
-    min-width: 90px;
+    min-width: 112px;
 }
 
 
@@ -1140,7 +1140,7 @@ body.mobile-game-mode .game-stage {
 }
 
 .group-box .card + .card {
-    margin-left: -35px;
+    margin-left: -28px;
 }
 
 .printed-joker-text {
