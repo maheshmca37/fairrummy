@@ -55,14 +55,33 @@
   <div id="app" class="game-viewport hidden">
     <div id="gameStage" class="game-stage">
 
-      <header class="topbar">
-        <div>Table: <span id="tableIdDisplay">-</span></div>
-        <div class="topbar-item"> Dealer : <span id="dealerName">-</span></div>
+     <header class="topbar">
 
-        <div>Current Turn: <span id="currentTurnPlayer">-</span></div>
-       <div><button id="btnHistory">History</button> </div>
-        <div>⏱ Turn Timer: <span id="turnTimer">40</span></div>
-      </header>
+    <div class="topbar-item">
+        Table:
+        <span id="tableIdDisplay">-</span>
+    </div>
+
+    <div class="topbar-item">
+        Dealer:
+        <span id="dealerName">-</span>
+    </div>
+
+    <div class="topbar-item turn-timer-box">
+        ⏱ Turn Timer:
+        <span id="turnTimer">40</span>
+    </div>
+
+    <div class="topbar-item current-turn-box">
+        Current Turn:
+        <span id="currentTurnPlayer">-</span>
+    </div>
+
+    <div class="topbar-history">
+        <button id="btnHistory">History</button>
+    </div>
+
+</header>
 
       <main class="table">
         <section id="opponents" class="opponents" aria-label="Opponents">

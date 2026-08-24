@@ -195,6 +195,16 @@ button {
     font-weight: 700;
 
     box-sizing: border-box;
+    flex-wrap: nowrap;
+}
+.topbar {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.topbar > * {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .topbar-item {
@@ -319,7 +329,7 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right:18px;
+    margin-right:32px;
 }
 
 .stock-area {
@@ -329,6 +339,7 @@ button {
     height: 140px;
 
     flex: 0 0 165px;
+    margin-right: 32px;
 }
 
 
@@ -440,18 +451,28 @@ button {
 
 #declarationTimer {
     position: absolute;
+
     left: 50%;
-    bottom: -8px;
+    bottom: -18px;
 
     transform: translateX(-50%);
 
     margin: 0;
 
-    font-size: 18px;
-    font-weight: 800;
-    text-align: center;
+    font-size: 25px;
+    font-weight: 900;
 
+    color: #ff2b2b;
+
+    text-align: center;
     white-space: nowrap;
+
+    line-height: 1.2;
+
+    text-shadow:
+        0 0 4px rgba(255, 0, 0, 0.55);
+
+    z-index: 20;
 }
 
 .actions {
@@ -1193,4 +1214,127 @@ body.mobile-game-mode .game-stage {
     font-size: 32px;
     font-weight: 900;
 }
+
+#turnTimer {
+    color: #ff3030;
+    font-size: 20px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+#currentTurnPlayer {
+    color: #ff3030;
+    font-size: 20px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+
+#historyBtn {
+    width: auto;
+    min-width: 90px;
+
+    height: 42px;
+
+    padding: 0 16px;
+
+    font-size: 18px;
+    font-weight: 800;
+}
+
+/* ========================================
+   TOP GAME BAR
+======================================== */
+
+.topbar {
+    width: 100%;
+
+    display: grid;
+
+    grid-template-columns:
+        1fr
+        1fr
+        1fr
+        1fr
+        auto;
+
+    align-items: center;
+
+    column-gap: 18px;
+
+    padding: 5px 12px;
+
+    box-sizing: border-box;
+
+    white-space: nowrap;
+}
+
+
+/* GENERAL TOP BAR ITEMS */
+
+.topbar-item {
+    font-size: 17px;
+    font-weight: 700;
+
+    white-space: nowrap;
+}
+
+
+/* TURN TIMER */
+
+.turn-timer-box,
+#turnTimer {
+    color: #ff3030;
+    font-weight: 900;
+}
+
+#turnTimer {
+    font-size: 22px;
+}
+
+
+/* CURRENT TURN */
+
+.current-turn-box,
+#currentTurnPlayer {
+    color: #ff3030;
+    font-weight: 900;
+}
+
+#currentTurnPlayer {
+    font-size: 22px;
+}
+
+
+/* HISTORY POSITION */
+
+.topbar-history {
+    display: flex;
+
+    align-items: center;
+    justify-content: flex-end;
+
+    white-space: nowrap;
+}
+
+
+/* HISTORY BUTTON */
+
+#btnHistory {
+    width: auto;
+    min-width: 92px;
+
+    height: 42px;
+
+    padding: 0 18px;
+
+    margin: 0;
+
+    font-size: 17px;
+    font-weight: 800;
+
+    white-space: nowrap;
+}
+
+
 /* The game itself is scaled by responsive.js. */

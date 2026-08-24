@@ -2074,11 +2074,6 @@ function subscribeRealtime() {
         )
         .subscribe((status, err) => {
 
-            console.log(
-                "Realtime status:",
-                status,
-                err
-            );
         });
 }
 
