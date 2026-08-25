@@ -104,12 +104,26 @@
 
             <div class="open-area">
 
+
+                            
+                <button
+                    id="openPileHistoryBtn"
+                    class="open-history-btn"
+                    onclick="showOpenPileHistory(event)"
+                    title="View discarded cards"
+                >
+                    ≡≡≡
+                </button>
+
                 <div
                     id="openVisual"
                     class="table-card clickable-pile"
                     draggable="true">
                     -
                 </div>
+
+                
+
 
             </div>
 
@@ -453,6 +467,34 @@
         <div class="rotate-icon">📱↻</div>
         <div>Please rotate your phone</div>
         <small>This game is designed for landscape mode</small>
+    </div>
+</div>
+
+<div
+    id="openPilePopup"
+    class="open-pile-popup"
+    onclick="closeOpenPileHistory()"
+>
+    <div
+        class="open-pile-popup-box"
+        onclick="event.stopPropagation()"
+    >
+        <div class="open-pile-popup-title">
+            Discarded Cards
+        </div>
+
+        <div
+            id="openPileHistoryCards"
+            class="open-pile-history-cards"
+        ></div>
+
+        <button
+            class="open-pile-close-btn"
+            onclick="closeOpenPileHistory()"
+        >
+            Close
+        </button>
+
     </div>
 </div>
 

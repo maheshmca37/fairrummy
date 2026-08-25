@@ -31,6 +31,7 @@ let state = {
     [],
     []
    ],
+   openPile: [],
   selectedCard: null,
   jokerCard:null,
   lobbyTimerHandle: null,
@@ -2503,6 +2504,11 @@ async function loadSessionInfo() {
     state.turnEndAt = data.turn_end_at;
 
  
+    // Complete current open pile
+    state.openPile =
+        data.open_pile || [];
+
+        
     const topOpenCard =
         data.open_pile?.slice(-1)[0];
 
@@ -2774,6 +2780,78 @@ function startDeclarationTimer() {
         );
 }
 
+
+function showOpenPileHistory(event)
+{
+    if (event) {
+        event.stopPropagation();
+    }
+
+    const popup =
+        document.getElementById(
+            "openPilePopup"
+        );
+
+    const container =
+        document.getElementById(
+            "openPileHistoryCards"
+        );
+
+    if (!popup || !container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    const cards =
+        (state.openPile || []).slice(0, -1);
+
+
+    if (cards.length === 0)
+    {
+        container.innerHTML =
+            "<div>No discarded cards</div>";
+    }
+    else
+    {
+        cards.forEach(card =>
+        {
+            const cardDiv =
+                document.createElement(
+                    "div"
+                );
+
+            cardDiv.className =
+                "open-history-card";
+
+            cardDiv.innerText =
+                card;
+
+            container.appendChild(
+                cardDiv
+            );
+        });
+    }
+
+
+    popup.style.display =
+        "flex";
+}
+
+
+function closeOpenPileHistory()
+{
+    const popup =
+        document.getElementById(
+            "openPilePopup"
+        );
+
+    if (popup)
+    {
+        popup.style.display =
+            "none";
+    }
+}
 
 async function openSettlement() {
 
