@@ -20,7 +20,11 @@
 
       <input id="tableIdInput" type="number" inputmode="numeric" placeholder="Table ID" value="777777">
       <input id="password" type="password" placeholder="Password">
-      <input id="nickname" type="text" placeholder="Nickname" autocomplete="nickname">
+      <input id="nickname" type="text" 
+          placeholder="DISPLAY NAME" autocomplete="nickname"
+          maxlength="15"
+          title="Remember this exact name for reconnect the Game"
+          oninput="this.value = this.value.toUpperCase()">
 
       <button type="button" onclick="joinTable()">Join Game</button>
     </div>
@@ -443,6 +447,15 @@
     </div>
 
 </div>
+
+  <div id="rotateDeviceOverlay">
+    <div class="rotate-message">
+        <div class="rotate-icon">📱↻</div>
+        <div>Please rotate your phone</div>
+        <small>This game is designed for landscape mode</small>
+    </div>
+</div>
+
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="app.js"></script>
