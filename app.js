@@ -994,22 +994,45 @@ function showBaseTableHand() {
 
 
 
-function startObservationTimer() {
+function startObservationTimer()
+{
+    // --------------------------------------------------
+    // Stop any previous observation timer
+    // --------------------------------------------------
 
-    clearInterval(
-        state.observationTimerInterval
-    );
+    if (state.observationTimerInterval)
+    {
+        clearInterval(
+            state.observationTimerInterval
+        );
 
-    function updateObservationTimer() {
+        state.observationTimerInterval = null;
+    }
 
-        if(!state.observationEndAt){
+
+    // --------------------------------------------------
+    // No observation end time
+    // --------------------------------------------------
+
+    if (!state.observationEndAt)
+    {
+        return;
+    }
+
+
+    function updateObservationTimer()
+    {
+        if (!state.observationEndAt)
+        {
             return;
         }
+
 
         const endTime =
             new Date(
                 state.observationEndAt
             ).getTime();
+
 
         const seconds =
             Math.max(
@@ -1019,6 +1042,7 @@ function startObservationTimer() {
                 )
             );
 
+
         document.getElementById(
             "observationTimer"
         ).innerText =
@@ -1026,20 +1050,73 @@ function startObservationTimer() {
             seconds +
             "s)";
 
-        if(seconds <= 0){
 
-            clearInterval(
-                state.observationTimerInterval
+        // --------------------------------------------------
+        // OBSERVATION FINISHED
+        // --------------------------------------------------
+
+        if (seconds <= 0)
+        {
+            if (state.observationTimerInterval)
+            {
+                clearInterval(
+                    state.observationTimerInterval
+                );
+
+                state.observationTimerInterval =
+                    null;
+            }
+
+
+            console.log(
+                "OBSERVATION TIMER EXPIRED CALLED",
+                {
+                    time:
+                        new Date().toISOString(),
+
+                    dealNo:
+                        state.deal_no
+                }
             );
 
-            state.observationTimerInterval =
-                null;
 
             onObservationTimerExpired();
+
+            return;
         }
     }
 
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Check whether already expired BEFORE creating
+    // another interval.
+    // --------------------------------------------------
+
+    const endTime =
+        new Date(
+            state.observationEndAt
+        ).getTime();
+
+
+    if (Date.now() >= endTime)
+    {
+        updateObservationTimer();
+
+        return; // CRITICAL
+    }
+
+
+    // --------------------------------------------------
+    // First display update
+    // --------------------------------------------------
+
     updateObservationTimer();
+
+
+    // --------------------------------------------------
+    // Start timer only when observation is still active
+    // --------------------------------------------------
 
     state.observationTimerInterval =
         setInterval(
