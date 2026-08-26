@@ -1138,7 +1138,7 @@ async function startNextDeal()
             try
             {
                 await loadGame();
-                await loadSessionInfo();
+                //await loadSessionInfo();
                 await loadPlayers();
 
                 state.ignoreResultWindow = false;
@@ -2033,14 +2033,13 @@ async function discard() {
 
 
 let sessionRefreshPending = false;
+let sessionRefreshTimer = null;
 
 function subscribeRealtime() {
 
     if (!state.sessionId) {
         return;
     }
-
-   
 
     supabaseClient
         .channel(
@@ -2059,40 +2058,88 @@ function subscribeRealtime() {
                     "session_id=eq." +
                     state.sessionId
             },
-            (payload) => {
-                
-                if (sessionRefreshPending) {
-                    return;
+            () => {
+
+                // ------------------------------------------
+                // Do NOT discard events.
+                //
+                // Every new event resets this timer.
+                // We refresh only after the burst finishes.
+                // ------------------------------------------
+
+                if (sessionRefreshTimer) {
+                    clearTimeout(
+                        sessionRefreshTimer
+                    );
                 }
 
-                sessionRefreshPending = true;
+                sessionRefreshTimer =
+                    setTimeout(
+                        async () => {
 
-                setTimeout(async () => {
+                            // If another refresh is still running,
+                            // try again shortly instead of losing event.
+                            if (sessionRefreshPending) {
 
-                    try {
+                                sessionRefreshTimer =
+                                    setTimeout(
+                                        () => {
+                                            sessionRefreshTimer = null;
 
-                        await loadSessionInfo();
-                        updateActionButtons();
+                                            // trigger fresh DB read
+                                            loadSessionInfo()
+                                                .then(() => {
+                                                    updateActionButtons();
+                                                })
+                                                .catch(error => {
+                                                    console.error(
+                                                        "Realtime delayed refresh error:",
+                                                        error
+                                                    );
+                                                });
+                                        },
+                                        200
+                                    );
 
-                    }
-                    catch (error) {
+                                return;
+                            }
 
-                        console.error(
-                            "Realtime session refresh error:",
-                            error
-                        );
+                            sessionRefreshPending = true;
+                            sessionRefreshTimer = null;
 
-                    }
-                    finally {
+                            try {
 
-                        sessionRefreshPending = false;
-                    }
+                                await loadSessionInfo();
 
-                }, 300);
+                                updateActionButtons();
+
+                            }
+                            catch (error) {
+
+                                console.error(
+                                    "Realtime session refresh error:",
+                                    error
+                                );
+
+                            }
+                            finally {
+
+                                sessionRefreshPending = false;
+                            }
+
+                        },
+                        350
+                    );
             }
         )
         .subscribe((status, err) => {
 
+            if (err) {
+                console.error(
+                    "Session realtime error:",
+                    err
+                );
+            }
         });
 }
 
@@ -3186,8 +3233,7 @@ function updateActionButtons() {
     const openPile =
         document.getElementById("openVisual");
 
-    const stockPile =
-        document.getElementById("stockCard");
+    const stockPile = document.getElementById("stockCard");
 
 
     // --------------------------------------------------
@@ -3390,14 +3436,11 @@ state.groups = [
 ];
 
 
- document.getElementById("openVisual").innerText =
-    data.open_pile?.slice(-1)[0] || "-";
+ //document.getElementById("openVisual").innerText = data.open_pile?.slice(-1)[0] || "-";
 
-document.getElementById("jokerVisual").innerText =
-    data.joker_card || "-";
+//document.getElementById("jokerVisual").innerText = data.joker_card || "-";
 
-document.getElementById("stockCard").innerText =
-    data.stock_pile?.length || 0;
+  //document.getElementById("stockCard").innerText = data.stock_pile?.length || 0;
 
     // Clear selection belonging to the old hand
 state.selectedCard = null;
