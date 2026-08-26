@@ -1112,11 +1112,11 @@ async function startNextDeal()
     }
 
     closeSettlementPopup();
-    // --------------------------------------------------
+
+
+    // ==================================================
     // ELIMINATED PLAYER
-    // They do not start the next deal,
-    // but they must refresh their screen.
-    // --------------------------------------------------
+    // ==================================================
 
     if (state.playerStatus === "ELIMINATED")
     {
@@ -1124,11 +1124,14 @@ async function startNextDeal()
         state.resultWindowOpened = false;
         state.resultWindowLoaded = false;
 
-        clearInterval(state.observationTimerInterval);
+        clearInterval(
+            state.observationTimerInterval
+        );
 
         document.getElementById(
             "dealResultModal"
         ).style.display = "none";
+
 
         setTimeout(async () =>
         {
@@ -1147,16 +1150,19 @@ async function startNextDeal()
                     error
                 );
             }
+
         }, 2500);
 
         return;
     }
 
-    // --------------------------------------------------
-    // RESET LOCAL RESULT-WINDOW STATE
-    // --------------------------------------------------
+
+    // ==================================================
+    // RESET LOCAL RESULT WINDOW
+    // ==================================================
 
     state.ignoreResultWindow = true;
+
     state.resultWindowOpened = false;
     state.resultWindowLoaded = false;
 
@@ -1165,49 +1171,64 @@ async function startNextDeal()
 
     state.declarationTimerStarted = false;
 
-    clearInterval(state.observationTimerInterval);
+
+    clearInterval(
+        state.observationTimerInterval
+    );
+
 
     document.getElementById(
         "dealResultsContainer"
     ).innerHTML = "";
 
+
     document.getElementById(
         "resultJokerCard"
     ).innerHTML = "";
+
 
     document.getElementById(
         "dealResultModal"
     ).style.display = "none";
 
-    // Save this before any seat rebuilding occurs.
-    const isCurrentDealer =
-        Number(state.seatNo) === Number(state.dealerSeat);
 
-    // --------------------------------------------------
-    // ONLY CURRENT DEALER STARTS DATABASE PROCEDURES
-    // --------------------------------------------------
+    // ==================================================
+    // Identify current dealer BEFORE seat rebuild
+    // ==================================================
+
+    const isCurrentDealer =
+        Number(state.seatNo) ===
+        Number(state.dealerSeat);
+
+
+    // ==================================================
+    // ONLY CURRENT DEALER STARTS NEXT DEAL
+    // ==================================================
 
     if (isCurrentDealer)
     {
         try
         {
-
-            // --------------------------------------------------
-            // 1. PREPARE NEXT DEAL
-            // --------------------------------------------------
-        
-
-            // --------------------------------------------------
-            // 2. CHECK REJOIN QUEUE
-            // --------------------------------------------------
+            // ------------------------------------------
+            // 1. CHECK REJOIN QUEUE
+            // ------------------------------------------
 
             const {
                 data: queueData,
                 error: queueError
-            } = await supabaseClient
-                .from("crdg_rejoin_queue")
-                .select("user_id")
-                .eq("session_id", state.sessionId);
+            } =
+            await supabaseClient
+                .from(
+                    "crdg_rejoin_queue"
+                )
+                .select(
+                    "user_id"
+                )
+                .eq(
+                    "session_id",
+                    state.sessionId
+                );
+
 
             if (queueError)
             {
@@ -1220,45 +1241,63 @@ async function startNextDeal()
                 return;
             }
 
+
             const rejoinCount =
                 Array.isArray(queueData)
                     ? queueData.length
                     : 0;
 
 
-                const {
-                    data: historyData,
-                    error: historyError
-                } = await supabaseClient.rpc(
-                    "crdg_save_deal_history",
-                    {
-                        p_session_id: state.sessionId,
-                        p_deal_no: state.deal_no
-                    }
+            // ------------------------------------------
+            // 2. SAVE COMPLETED DEAL HISTORY
+            // ------------------------------------------
+
+            const {
+                data: historyData,
+                error: historyError
+            } =
+            await supabaseClient.rpc(
+                "crdg_save_deal_history",
+                {
+                    p_session_id:
+                        state.sessionId,
+
+                    p_deal_no:
+                        state.deal_no
+                }
+            );
+
+
+            if (historyError)
+            {
+                console.error(
+                    "crdg_save_deal_history ERROR:",
+                    historyError
                 );
 
-                if (historyError) {
-                    console.error(
-                        "crdg_save_deal_history ERROR:",
-                        historyError
-                    );
+                state.ignoreResultWindow = false;
+                return;
+            }
 
-                    return;
-                }
+
+            // ------------------------------------------
+            // 3. REBUILD SEATING IF REJOIN EXISTS
+            // ------------------------------------------
 
             if (rejoinCount > 0)
             {
-            
-
                 const {
                     data: rebuildData,
                     error: rebuildError
-                } = await supabaseClient.rpc(
+                } =
+                await supabaseClient.rpc(
                     "crdg_rebuild_turn_order",
                     {
-                        p_session_id: state.sessionId
+                        p_session_id:
+                            state.sessionId
                     }
                 );
+
 
                 if (rebuildError)
                 {
@@ -1270,62 +1309,45 @@ async function startNextDeal()
                     state.ignoreResultWindow = false;
                     return;
                 }
-
-            }
-            else
-            {
-                
             }
 
+
+            // ==========================================
+            // 4. PREPARE + DEAL IN ONE DB TRANSACTION
+            // ==========================================
 
             const {
-                data: prepareData,
-                error: prepareError
-            } = await supabaseClient.rpc(
-                "crdg_prepare_next_deal",
+                data: nextDealData,
+                error: nextDealError
+            } =
+            await supabaseClient.rpc(
+                "crdg_begin_next_deal",
                 {
-                    p_session_id: state.sessionId,
-                    p_skip_dealer_rotation: rejoinCount > 0
+                    p_session_id:
+                        state.sessionId,
+
+                    p_skip_dealer_rotation:
+                        rejoinCount > 0
                 }
             );
 
-            if (prepareError)
+
+            if (nextDealError)
             {
                 console.error(
-                    "crdg_prepare_next_deal failed:",
-                    prepareError
+                    "crdg_begin_next_deal failed:",
+                    nextDealError
                 );
 
                 state.ignoreResultWindow = false;
                 return;
             }
 
-            // --------------------------------------------------
-            // 4. START NEW DEAL
-            // --------------------------------------------------
 
-            const {
-                data: startData,
-                error: startError
-            } = await supabaseClient.rpc(
-                "crdg_start_new_deal",
-                {
-                    p_session_id: state.sessionId
-                }
+            console.log(
+                "NEXT DEAL RESULT:",
+                nextDealData
             );
-
-            if (startError)
-            {
-                console.error(
-                    "crdg_start_new_deal failed:",
-                    startError
-                );
-
-                state.ignoreResultWindow = false;
-                return;
-            }
-
-            
         }
         catch (error)
         {
@@ -1338,53 +1360,47 @@ async function startNextDeal()
             return;
         }
     }
-    else
-    {
-        // Do not return here.
-        // Non-dealers must continue and refresh below.
 
-        
-    }
 
-    // --------------------------------------------------
-    // ALL ACTIVE PLAYERS REFRESH
-    //
-    // Dealer:
-    // waits for DB procedures to finish, then refreshes.
-    //
-    // Non-dealers:
-    // wait briefly for dealer procedures, then refresh.
-    // --------------------------------------------------
+    // ==================================================
+    // ALL ACTIVE PLAYERS LOAD NEW DEAL
+    // ==================================================
 
     setTimeout(async () =>
     {
         try
         {
+            // ------------------------------------------
+            // IMPORTANT:
+            // Fresh DB hand must be loaded first.
+            // ------------------------------------------
+
             await loadGame();
 
-            // Must reload dealer seat, current turn,
-            // session values and this player's new seat.
+
+            // ------------------------------------------
+            // New joker/open/turn/dealer
+            // ------------------------------------------
+
             await loadSessionInfo();
 
-            // Must reload all players because seat numbers
-            // may have changed after rejoin rebuilding.
+
+            // ------------------------------------------
+            // Seat/player information
+            // ------------------------------------------
+
             await loadPlayers();
+
+
+            // ------------------------------------------
+            // Render freshly loaded 13 cards
+            // ------------------------------------------
 
             renderHand();
 
-            /*
-             * Be careful with this.
-             *
-             * A new deal has just started, so normally the deal
-             * score should not be calculated immediately.
-             *
-             * Keep this only if calculateDealScore() merely
-             * refreshes a display and does not save/finalize score.
-             */
-            // calculateDealScore();
 
-            state.ignoreResultWindow = false;
-
+            state.ignoreResultWindow =
+                false;
         }
         catch (error)
         {
@@ -1393,8 +1409,10 @@ async function startNextDeal()
                 error
             );
 
-            state.ignoreResultWindow = false;
+            state.ignoreResultWindow =
+                false;
         }
+
     }, 2500);
 }
 

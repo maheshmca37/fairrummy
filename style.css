@@ -452,10 +452,10 @@ button {
 #declarationTimer {
     position: absolute;
 
-    left: 50%;
+    left: 70%;
     bottom: -18px;
 
-    transform: translateX(-50%);
+    transform: translateX(-70%);
 
     margin: 0;
 
