@@ -1106,6 +1106,17 @@ function resetSettlementControls() {
 
 async function startNextDeal()
 {
+
+    console.log(
+    "START NEXT DEAL CALLED",
+    {
+        time: new Date().toISOString(),
+        dealNo: state.deal_no,
+        userId: state.userId,
+        seatNo: state.seatNo,
+        dealerSeat: state.dealerSeat
+    }
+);
     if (state.tableCompleted)
     {
         return;
@@ -1315,6 +1326,14 @@ async function startNextDeal()
             // ==========================================
             // 4. PREPARE + DEAL IN ONE DB TRANSACTION
             // ==========================================
+
+console.log(
+    "CALLING BEGIN NEXT DEAL",
+    {
+        dealNo: state.deal_no,
+        userId: state.userId
+    }
+);
 
             const {
                 data: nextDealData,
