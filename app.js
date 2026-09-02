@@ -1116,6 +1116,10 @@ function startObservationTimer()
 
 async function onObservationTimerExpired()
 {
+    console.log(
+        "OBSERVATION TIMER EXPIRED"
+    );
+
     document.getElementById(
         "dealResultModal"
     ).style.display = "none";
@@ -1123,7 +1127,54 @@ async function onObservationTimerExpired()
     clearCurrentDealUI();
 
 
-   await startNextDeal();
+    // --------------------------------------------------
+    // Reload session first.
+    // Check whether this was the final deal.
+    // --------------------------------------------------
+
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_game_sessions")
+            .select("*")
+            .eq(
+                "session_id",
+                state.sessionId
+            )
+            .single();
+
+
+    if (error) {
+
+        console.error(
+            "Final completion check failed:",
+            error
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // GAME COMPLETED
+    // --------------------------------------------------
+
+    if (data.game_completed === true) {
+
+        console.log(
+            "FINAL OBSERVATION COMPLETE - SHOW TABLE COMPLETION"
+        );
+
+        handleTableCompleted(data);
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // NORMAL GAME → START NEXT DEAL
+    // --------------------------------------------------
+
+    await startNextDeal();
 }
 
 
@@ -2567,10 +2618,42 @@ async function loadSessionInfo() {
         return;
     }
 
-    if (data.game_completed) {
-        handleTableCompleted(data);
-        return;
-    }
+            // --------------------------------------------------
+        // GAME COMPLETION
+        //
+        // Even when the game is completed, the final deal
+        // must first pass through the observation window.
+        //
+        // Only show the table-completion window after the
+        // observation period has finished.
+        // --------------------------------------------------
+
+        // --------------------------------------------------
+        // GAME COMPLETION
+        //
+        // Final deal must show observation window first.
+        // --------------------------------------------------
+
+        if (data.game_completed) {
+
+            // If deal results are ready, allow the normal
+            // result/observation flow to continue.
+            if (data.deal_results_ready === true) {
+
+                console.log(
+                    "GAME COMPLETED - WAITING FOR OBSERVATION FLOW"
+                );
+
+            }
+            else {
+
+                // No result window pending.
+                // Safe to show final completion.
+                handleTableCompleted(data);
+                return;
+
+            }
+        }
 
     state.dealerSeat = Number(data.dealer_seat);
     state.currentTurnSeat = Number(data.current_turn_seat);

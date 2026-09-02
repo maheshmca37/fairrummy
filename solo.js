@@ -1119,14 +1119,141 @@ function startObservationTimer()
 
 async function onObservationTimerExpired()
 {
+    
+
+
+    // --------------------------------------------------
+    // STOP OBSERVATION TIMER
+    // --------------------------------------------------
+
+    clearInterval(
+        state.observationTimerInterval
+    );
+
+    state.observationTimerInterval = null;
+
+
+    // --------------------------------------------------
+    // SOLO GAME
+    //
+    // Observation finished → Complete the entire game.
+    // No next deal.
+    // --------------------------------------------------
+
+    if (
+        typeof GAME_TYPE !== "undefined" &&
+        GAME_TYPE === "SOLO"
+    ) {
+
+
+
+        const { data: soloData, error: soloError } =
+            await supabaseClient.rpc(
+                "crdg_solo_complete_game",
+                {
+                    p_session_id:
+                        state.sessionId,
+
+                    p_user_id:
+                        state.userId
+                }
+            );
+
+
+        if (soloError) {
+
+            console.error(
+                "Solo completion error:",
+                soloError
+            );
+
+            alert(
+                "Unable to complete Solo game."
+            );
+
+            return;
+        }
+
+
+
+        // --------------------------------------------------
+        // Reload session immediately.
+        //
+        // This avoids depending only on Realtime.
+        // loadSessionInfo() will detect:
+        //
+        // data.game_completed = true
+        //
+        // and call handleTableCompleted(data).
+        // --------------------------------------------------
+
+        await loadSessionInfo();
+
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // NORMAL / FRIENDS GAME
+    // --------------------------------------------------
+
     document.getElementById(
         "dealResultModal"
     ).style.display = "none";
 
+
     clearCurrentDealUI();
 
 
-   await startNextDeal();
+    // --------------------------------------------------
+    // Reload session first.
+    // Check whether this was the final deal.
+    // --------------------------------------------------
+
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_game_sessions")
+            .select("*")
+            .eq(
+                "session_id",
+                state.sessionId
+            )
+            .single();
+
+
+    if (error) {
+
+        console.error(
+            "Final completion check failed:",
+            error
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // GAME COMPLETED
+    // --------------------------------------------------
+
+    if (data.game_completed === true) {
+
+        console.log(
+            "FINAL OBSERVATION COMPLETE - SHOW TABLE COMPLETION"
+        );
+
+        handleTableCompleted(data);
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // NORMAL GAME → START NEXT DEAL
+    // --------------------------------------------------
+
+    await startNextDeal();
 }
 
 
@@ -2571,9 +2698,25 @@ async function loadSessionInfo() {
     }
 
     if (data.game_completed) {
-        handleTableCompleted(data);
-        return;
-    }
+
+            // If deal results are ready, allow the normal
+            // result/observation flow to continue.
+            if (data.deal_results_ready === true) {
+
+                console.log(
+                    "GAME COMPLETED - WAITING FOR OBSERVATION FLOW"
+                );
+
+            }
+            else {
+
+                // No result window pending.
+                // Safe to show final completion.
+                handleTableCompleted(data);
+                return;
+
+            }
+        }
 
     state.dealerSeat = Number(data.dealer_seat);
     state.currentTurnSeat = Number(data.current_turn_seat);
@@ -2948,9 +3091,6 @@ async function playSoloComputerTurn() {
 
     computerTurnRunning = true;
 
-    console.log(
-        "SOLO: Computer turn started"
-    );
 
     try {
 
@@ -4771,78 +4911,162 @@ async function loadDealResults()
         }
 
 
-        let html = "";
+let html = "";
 
-        // Winner / declared player cards
-        if( showCards && 
-            row.grouped_hand &&
-           row.grouped_hand.length > 0)
-        {
-            row.grouped_hand.forEach(group => {
+const usedCards = [];
 
-               html += `<div class="result-card-group">`;
 
-                group.forEach(card => {
+/* ==========================================
+   SHOW GROUPED CARDS
+========================================== */
 
-                    let cardClass =
-                        "result-card";
+if (
+    showCards &&
+    row.grouped_hand &&
+    row.grouped_hand.length > 0
+)
+{
+    row.grouped_hand.forEach(group => {
 
-                    if(
-                        card.includes("♥") ||
-                        card.includes("♦")
-                    ){
-                        cardClass +=
-                            " red-card";
-                    }
+        html += `<div class="result-card-group">`;
 
-                    if(isJokerCard(card))
-                    {
-                        cardClass +=
-                            " joker-highlight";
-                    }
+        group.forEach(card => {
 
-                    html += `
-                        <div class="${cardClass}">
-                        ${card}
-                        </div>
-                    `;
-                });
+            usedCards.push(card);
 
-                html += `</div>`;
-            });
-        }
-        else
-        {
-          html +=`<div class="result-card-group">`;
-            if(showCards && row.original_hand)
-            {
+            let cardClass = "result-card";
 
-            row.original_hand.forEach(card => {
-
-                let cardClass = "result-card";
-
-                if(
-                    card.includes("♥") ||
-                    card.includes("♦")
-                ){
-                    cardClass += " red-card";
-                }
-
-                if(isJokerCard(card)){
-                    cardClass += " joker-highlight";
-                }
-
-                html += `
-                   <div class="${cardClass}">
-                    ${card}
-                   </div>
-                `;
-            });
+            if (
+                card.includes("♥") ||
+                card.includes("♦")
+            ) {
+                cardClass += " red-card";
             }
 
-            html += `</div>`;
+            if (isJokerCard(card)) {
+                cardClass += " joker-highlight";
+            }
+
+            html += `
+                <div class="${cardClass}">
+                    ${card}
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    });
+}
+
+
+/* ==========================================
+   FIND UNGROUPED CARDS
+   IMPORTANT: Handles duplicate cards correctly
+========================================== */
+
+const remainingCards = [];
+
+if (
+    showCards &&
+    row.original_hand &&
+    row.original_hand.length > 0
+)
+{
+    const groupedCopy = [...usedCards];
+
+    row.original_hand.forEach(card => {
+
+        const index =
+            groupedCopy.indexOf(card);
+
+        if (index >= 0) {
+
+            // Remove only ONE occurrence
+            groupedCopy.splice(index, 1);
+
+        } else {
+
+            remainingCards.push(card);
         }
 
+    });
+}
+
+
+/* ==========================================
+   SHOW UNGROUPED CARDS AS FINAL GROUP
+========================================== */
+
+if (remainingCards.length > 0)
+{
+    html += `
+        <div class="result-card-group ungrouped-group">
+    `;
+
+    remainingCards.forEach(card => {
+
+        let cardClass =
+            "result-card ungrouped-card";
+
+        if (
+            card.includes("♥") ||
+            card.includes("♦")
+        ) {
+            cardClass += " red-card";
+        }
+
+        if (isJokerCard(card)) {
+            cardClass += " joker-highlight";
+        }
+
+        html += `
+            <div class="${cardClass}">
+                ${card}
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+}
+
+
+/* ==========================================
+   NO GROUPING CASE
+========================================== */
+
+if (
+    showCards &&
+    (!row.grouped_hand ||
+     row.grouped_hand.length === 0) &&
+    row.original_hand
+)
+{
+    html += `<div class="result-card-group">`;
+
+    row.original_hand.forEach(card => {
+
+        let cardClass = "result-card";
+
+        if (
+            card.includes("♥") ||
+            card.includes("♦")
+        ) {
+            cardClass += " red-card";
+        }
+
+        if (isJokerCard(card)) {
+            cardClass += " joker-highlight";
+        }
+
+        html += `
+            <div class="${cardClass}">
+                ${card}
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+}
 
         tbody.innerHTML += `
         <tr>
@@ -5135,7 +5359,7 @@ async function postJoinFlow() {
 
 window.startSoloGame = async function () {
 
-    console.log("Starting SOLO game...");
+    
 
     const nicknameElement =
         document.getElementById("nickname");
@@ -5231,10 +5455,7 @@ window.startSoloGame = async function () {
     );
 
 
-    console.log(
-        "SOLO LOBBY CREATED:",
-        result
-    );
+    
 
 
     // -----------------------------------------
