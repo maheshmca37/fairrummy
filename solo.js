@@ -2961,6 +2961,100 @@ async function loadSessionInfo() {
    
 }
 
+
+function arrangeCardsSuitWise(cards) {
+
+    if (!cards || cards.length === 0) {
+        return [];
+    }
+
+
+    const suits = ["♠", "♥", "♦", "♣"];
+
+    const rankOrder = {
+        "A": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,
+        "5": 5,
+        "6": 6,
+        "7": 7,
+        "8": 8,
+        "9": 9,
+        "10": 10,
+        "J": 11,
+        "Q": 12,
+        "K": 13
+    };
+
+
+    const result = [];
+
+
+    suits.forEach(suit => {
+
+        const suitCards =
+            cards
+                .filter(card => card.includes(suit))
+                .map((card, index) => {
+
+                    const rank =
+                        card.replace(
+                            /[♠♥♦♣]/g,
+                            ""
+                        );
+
+                    return {
+                        card,
+                        index,
+                        rankValue:
+                            rankOrder[rank] || 99
+                    };
+
+                })
+                .sort(
+                    (a, b) =>
+                        a.rankValue - b.rankValue ||
+                        a.index - b.index
+                )
+                .map(x => x.card);
+
+
+        if (suitCards.length > 0) {
+
+            result.push(suitCards);
+
+        }
+
+    });
+
+
+    /* ==========================================
+       JOKERS AT END
+    ========================================== */
+
+    const jokers =
+        cards.filter(card => {
+
+            return (
+                String(card)
+                    .trim()
+                    .toUpperCase() === "JOKER"
+            );
+
+        });
+
+
+    if (jokers.length > 0) {
+
+        result.push(jokers);
+
+    }
+
+
+    return result;
+}
+
 async function loadAcceptedSettlement()
 {
     const { data, error } =
@@ -3326,80 +3420,36 @@ function closeSettlementPopup() {
     state.settlementEligible = false;
 }
 
-async function onDeclarationTimerExpired() {
+async function onDeclarationTimerExpired(){
 
-    // Prevent duplicate execution
-    if (finalGroupsSubmitting) {
-        console.log(
-            "Final groups submission already running..."
+    hideBaseTableHand();
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_submit_final_groups",
+            {
+                p_session_id:
+                    state.sessionId,
+
+                p_table_id:
+                    state.tableId,
+
+                p_user_id:
+                    state.userId,
+
+                p_groups:
+                    state.groups,
+
+                p_joker_card:
+                    state.jokerCard
+            }
         );
+
+    if(error){
+
+        console.error(error);
+
         return;
-    }
-
-    if (state.tableCompleted) {
-        return;
-    }
-
-    finalGroupsSubmitting = true;
-
-    try {
-
-        console.log(
-            "Submitting final groups...",
-            state.sessionId
-        );
-
-        hideBaseTableHand();
-
-        const { data, error } =
-            await supabaseClient.rpc(
-                "crdg_submit_final_groups",
-                {
-                    p_session_id:
-                        state.sessionId,
-
-                    p_table_id:
-                        state.tableId,
-
-                    p_user_id:
-                        state.userId,
-
-                    p_groups:
-                        state.groups,
-
-                    p_joker_card:
-                        state.jokerCard
-                }
-            );
-
-        if (error) {
-
-            console.error(
-                "Final groups submission error:",
-                error
-            );
-
-            return;
-        }
-
-        console.log(
-            "Final groups submitted successfully:",
-            data
-        );
-
-    }
-    catch (err) {
-
-        console.error(
-            "Unexpected declaration error:",
-            err
-        );
-
-    }
-    finally {
-
-        finalGroupsSubmitting = false;
-
     }
 }
 
@@ -4968,62 +5018,107 @@ const MAX_RESULT_CARDS = 13;
    SHOW GROUPED CARDS
 ========================================== */
 
+/* ==========================================
+   PREPARE DISPLAY GROUPS
+========================================== */
+
+let displayGroups = row.grouped_hand;
+
+
+/* ==========================================
+   COMPUTER VALID DECLARATION
+
+   Do NOT use database grouping.
+   Arrange original cards suit-wise only
+   for display.
+========================================== */
+
 if (
     showCards &&
-    row.grouped_hand &&
-    row.grouped_hand.length > 0
+    row.display_name === "COMPUTER" &&
+    Number(row.current_deal_score) === 0 &&
+    row.original_hand &&
+    row.original_hand.length > 0
+) {
+
+    displayGroups =
+        arrangeCardsSuitWise(
+            row.original_hand
+        );
+
+}
+
+
+/* ==========================================
+   SHOW GROUPED CARDS
+========================================== */
+
+if (
+    showCards &&
+    displayGroups &&
+    displayGroups.length > 0
 )
 {
-            row.grouped_hand.forEach(group => {
+
+    displayGroups.forEach(group => {
+
+        if (displayedCardCount >= MAX_RESULT_CARDS) {
+            return;
+        }
+
+
+        let groupHtml = "";
+
+
+        group.forEach(card => {
 
             if (displayedCardCount >= MAX_RESULT_CARDS) {
                 return;
             }
 
-            let groupHtml = "";
 
-            group.forEach(card => {
+            usedCards.push(card);
 
-                if (displayedCardCount >= MAX_RESULT_CARDS) {
-                    return;
-                }
-
-                usedCards.push(card);
-
-                displayedCardCount++;
-
-                let cardClass = "result-card";
-
-                if (
-                    card.includes("♥") ||
-                    card.includes("♦")
-                ) {
-                    cardClass += " red-card";
-                }
-
-                if (isJokerCard(card)) {
-                    cardClass += " joker-highlight";
-                }
-
-                groupHtml += `
-                    <div class="${cardClass}">
-                        ${card}
-                    </div>
-                `;
-            });
+            displayedCardCount++;
 
 
-            if (groupHtml !== "") {
+            let cardClass = "result-card";
 
-                html += `
-                    <div class="result-card-group">
-                        ${groupHtml}
-                    </div>
-                `;
 
+            if (
+                card.includes("♥") ||
+                card.includes("♦")
+            ) {
+                cardClass += " red-card";
             }
 
+
+            if (isJokerCard(card)) {
+                cardClass += " joker-highlight";
+            }
+
+
+            groupHtml += `
+                <div class="${cardClass}">
+                    ${card}
+                </div>
+            `;
+
         });
+
+
+        if (groupHtml !== "") {
+
+            html += `
+                <div class="result-card-group">
+                    ${groupHtml}
+                </div>
+            `;
+
+        }
+
+    });
+
 }
 
 
