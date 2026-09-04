@@ -1187,10 +1187,15 @@ async function onObservationTimerExpired()
         // and call handleTableCompleted(data).
         // --------------------------------------------------
 
-        await loadSessionInfo();
+       // await loadSessionInfo();
 
+
+        if (state.gameMode === "SOLO") {
+
+        window.location.replace("index.html");
 
         return;
+       }
     }
 
 
@@ -2971,6 +2976,7 @@ function arrangeCardsSuitWise(cards) {
 
     const suits = ["♠", "♥", "♦", "♣"];
 
+
     const rankOrder = {
         "A": 1,
         "2": 2,
@@ -2991,11 +2997,41 @@ function arrangeCardsSuitWise(cards) {
     const result = [];
 
 
+    /* ==========================================
+       COLLECT ALL JOKERS
+
+       Includes:
+       - Printed JOKER
+       - Wild joker cards detected by isJokerCard()
+    ========================================== */
+
+    const jokers =
+        cards.filter(card => {
+
+            return isJokerCard(card);
+
+        });
+
+
+    /* ==========================================
+       PROCESS NORMAL CARDS SUIT-WISE
+    ========================================== */
+
     suits.forEach(suit => {
 
         const suitCards =
             cards
-                .filter(card => card.includes(suit))
+
+                // Same suit
+                .filter(card =>
+                    card.includes(suit)
+                )
+
+                // Exclude ALL joker cards
+                .filter(card =>
+                    !isJokerCard(card)
+                )
+
                 .map((card, index) => {
 
                     const rank =
@@ -3012,11 +3048,13 @@ function arrangeCardsSuitWise(cards) {
                     };
 
                 })
+
                 .sort(
                     (a, b) =>
                         a.rankValue - b.rankValue ||
                         a.index - b.index
                 )
+
                 .map(x => x.card);
 
 
@@ -3030,20 +3068,8 @@ function arrangeCardsSuitWise(cards) {
 
 
     /* ==========================================
-       JOKERS AT END
+       ADD ALL JOKERS AT END
     ========================================== */
-
-    const jokers =
-        cards.filter(card => {
-
-            return (
-                String(card)
-                    .trim()
-                    .toUpperCase() === "JOKER"
-            );
-
-        });
-
 
     if (jokers.length > 0) {
 
@@ -5037,6 +5063,7 @@ if (
     showCards &&
     row.display_name === "COMPUTER" &&
     Number(row.current_deal_score) === 0 &&
+    row.user_id === row.declaration_user_id &&
     row.original_hand &&
     row.original_hand.length > 0
 ) {
