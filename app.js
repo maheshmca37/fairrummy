@@ -2341,6 +2341,11 @@ async function handleTableCompleted(data)
 }
 
 
+function goToHome()
+{
+    window.location.replace("index.html");
+}
+
 async function showTableCompletedScreen(data)
 {
     const tbody =
