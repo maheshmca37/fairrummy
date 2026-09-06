@@ -2661,6 +2661,12 @@ async function showTableCompletedScreen(data)
 }
 
 
+function goToHome()
+{
+    window.location.replace("index.html");
+}
+
+
 function getTableCardHTML(card) {
 
     if (!card || card === "-") {
@@ -2966,120 +2972,6 @@ async function loadSessionInfo() {
    
 }
 
-
-function arrangeCardsSuitWise(cards) {
-
-    if (!cards || cards.length === 0) {
-        return [];
-    }
-
-
-    const suits = ["♠", "♥", "♦", "♣"];
-
-
-    const rankOrder = {
-        "A": 1,
-        "2": 2,
-        "3": 3,
-        "4": 4,
-        "5": 5,
-        "6": 6,
-        "7": 7,
-        "8": 8,
-        "9": 9,
-        "10": 10,
-        "J": 11,
-        "Q": 12,
-        "K": 13
-    };
-
-
-    const result = [];
-
-
-    /* ==========================================
-       COLLECT ALL JOKERS
-
-       Includes:
-       - Printed JOKER
-       - Wild joker cards detected by isJokerCard()
-    ========================================== */
-
-    const jokers =
-        cards.filter(card => {
-
-            return isJokerCard(card);
-
-        });
-
-
-    /* ==========================================
-       PROCESS NORMAL CARDS SUIT-WISE
-    ========================================== */
-
-    suits.forEach(suit => {
-
-        const suitCards =
-            cards
-
-                // Same suit
-                .filter(card =>
-                    card.includes(suit)
-                )
-
-                // Exclude ALL joker cards
-                .filter(card =>
-                    !isJokerCard(card)
-                )
-
-                .map((card, index) => {
-
-                    const rank =
-                        card.replace(
-                            /[♠♥♦♣]/g,
-                            ""
-                        );
-
-                    return {
-                        card,
-                        index,
-                        rankValue:
-                            rankOrder[rank] || 99
-                    };
-
-                })
-
-                .sort(
-                    (a, b) =>
-                        a.rankValue - b.rankValue ||
-                        a.index - b.index
-                )
-
-                .map(x => x.card);
-
-
-        if (suitCards.length > 0) {
-
-            result.push(suitCards);
-
-        }
-
-    });
-
-
-    /* ==========================================
-       ADD ALL JOKERS AT END
-    ========================================== */
-
-    if (jokers.length > 0) {
-
-        result.push(jokers);
-
-    }
-
-
-    return result;
-}
 
 async function loadAcceptedSettlement()
 {
@@ -4959,6 +4851,7 @@ async function loadDealResults()
         "observationTimer"
     ).innerText = 30;
 
+
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_get_deal_results",
@@ -4966,6 +4859,7 @@ async function loadDealResults()
                 p_session_id: state.sessionId
             }
         );
+
 
     if(error)
     {
@@ -4983,42 +4877,51 @@ async function loadDealResults()
     </span>
     `;
 
+
     const container =
         document.getElementById(
             "dealResultsContainer"
         );
 
+
     container.innerHTML = "";
 
-        container.innerHTML = `
+
+    container.innerHTML =
+    `
         <div class="result-scroll">
+
         <table class="result-table">
 
-        <thead>
-        <tr>
-        <th>Player</th>
-        <th>Cards</th>
-        <th>Score</th>
-        <th>Total</th>
-        <th>Status</th>
-        </tr>
-        </thead>
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Cards</th>
+                    <th>Score</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
 
-        <tbody id="resultTableBody">
-        </tbody>
+            <tbody id="resultTableBody">
+            </tbody>
 
         </table>
-        </div>
-        `;
 
-        const tbody =
+        </div>
+    `;
+
+
+    const tbody =
         document.getElementById(
             "resultTableBody"
         );
 
+
     data.forEach(row => {
 
         let showCards = true;
+
 
         if(
             row.drop_type === "DROP" ||
@@ -5031,352 +4934,431 @@ async function loadDealResults()
         }
 
 
-let html = "";
-
-const usedCards = [];
-
-let displayedCardCount = 0;
-
-const MAX_RESULT_CARDS = 13;
+        let html = "";
 
 
-/* ==========================================
-   SHOW GROUPED CARDS
-========================================== */
-
-/* ==========================================
-   PREPARE DISPLAY GROUPS
-========================================== */
-
-let displayGroups = row.grouped_hand;
+        const usedCards = [];
 
 
-/* ==========================================
-   COMPUTER VALID DECLARATION
-
-   Do NOT use database grouping.
-   Arrange original cards suit-wise only
-   for display.
-========================================== */
-
-if (
-    showCards &&
-    row.display_name === "COMPUTER" &&
-    Number(row.current_deal_score) === 0 &&
-    row.user_id === row.declaration_user_id &&
-    row.original_hand &&
-    row.original_hand.length > 0
-) {
-
-    displayGroups =
-        arrangeCardsSuitWise(
-            row.original_hand
-        );
-
-}
+        let displayedCardCount = 0;
 
 
-/* ==========================================
-   SHOW GROUPED CARDS
-========================================== */
+        const MAX_RESULT_CARDS = 13;
 
-if (
-    showCards &&
-    displayGroups &&
-    displayGroups.length > 0
-)
-{
 
-    displayGroups.forEach(group => {
+        /* ==========================================
+           PREPARE DISPLAY GROUPS
 
-        if (displayedCardCount >= MAX_RESULT_CARDS) {
-            return;
+           IMPORTANT:
+           grouped_hand now already contains the
+           exact correct groups from database.
+
+           For computer declaration, the exact AI
+           declaration groups are saved and loaded
+           into the final snapshot.
+
+           NO suit-wise rearrangement needed.
+        ========================================== */
+
+        const displayGroups =
+            row.grouped_hand;
+
+
+        /* ==========================================
+           SHOW GROUPED CARDS
+        ========================================== */
+
+        if(
+            showCards &&
+            displayGroups &&
+            displayGroups.length > 0
+        )
+        {
+
+            displayGroups.forEach(group => {
+
+                if(
+                    displayedCardCount >= MAX_RESULT_CARDS
+                )
+                {
+                    return;
+                }
+
+
+                let groupHtml = "";
+
+
+                group.forEach(card => {
+
+                    if(
+                        displayedCardCount >= MAX_RESULT_CARDS
+                    )
+                    {
+                        return;
+                    }
+
+
+                    usedCards.push(card);
+
+
+                    displayedCardCount++;
+
+
+                    let cardClass =
+                        "result-card";
+
+
+                    if(
+                        card.includes("♥") ||
+                        card.includes("♦")
+                    )
+                    {
+                        cardClass += " red-card";
+                    }
+
+
+                    if(
+                        isJokerCard(card)
+                    )
+                    {
+                        cardClass += " joker-highlight";
+                    }
+
+
+                    groupHtml +=
+                    `
+                        <div class="${cardClass}">
+                            ${card}
+                        </div>
+                    `;
+
+                });
+
+
+                if(groupHtml !== "")
+                {
+                    html +=
+                    `
+                        <div class="result-card-group">
+                            ${groupHtml}
+                        </div>
+                    `;
+                }
+
+            });
+
         }
 
 
-        let groupHtml = "";
+        /* ==========================================
+           FIND UNGROUPED CARDS
+
+           Handles duplicate physical cards correctly.
+        ========================================== */
+
+        const remainingCards = [];
 
 
-        group.forEach(card => {
+        if(
+            showCards &&
+            row.original_hand &&
+            row.original_hand.length > 0
+        )
+        {
 
-            if (displayedCardCount >= MAX_RESULT_CARDS) {
-                return;
+            const originalCardCount =
+                row.original_hand.length;
+
+
+            const groupedCardCount =
+                usedCards.length;
+
+
+            /*
+               If grouped cards already contain all
+               original cards, nothing remains.
+            */
+
+            if(
+                groupedCardCount < originalCardCount
+            )
+            {
+
+                const groupedCopy =
+                    [...usedCards];
+
+
+                row.original_hand.forEach(card => {
+
+                    const index =
+                        groupedCopy.indexOf(card);
+
+
+                    if(index >= 0)
+                    {
+
+                        /*
+                           Remove only ONE occurrence.
+
+                           Important for two-deck rummy
+                           where identical card values
+                           can physically occur twice.
+                        */
+
+                        groupedCopy.splice(
+                            index,
+                            1
+                        );
+
+                    }
+                    else
+                    {
+
+                        remainingCards.push(card);
+
+                    }
+
+                });
+
             }
-
-
-            usedCards.push(card);
-
-            displayedCardCount++;
-
-
-            let cardClass = "result-card";
-
-
-            if (
-                card.includes("♥") ||
-                card.includes("♦")
-            ) {
-                cardClass += " red-card";
-            }
-
-
-            if (isJokerCard(card)) {
-                cardClass += " joker-highlight";
-            }
-
-
-            groupHtml += `
-                <div class="${cardClass}">
-                    ${card}
-                </div>
-            `;
-
-        });
-
-
-        if (groupHtml !== "") {
-
-            html += `
-                <div class="result-card-group">
-                    ${groupHtml}
-                </div>
-            `;
 
         }
 
-    });
 
-}
+        /* ==========================================
+           SHOW UNGROUPED CARDS AS FINAL GROUP
+        ========================================== */
 
+        if(
+            remainingCards.length > 0
+        )
+        {
 
-/* ==========================================
-   FIND UNGROUPED CARDS
-   IMPORTANT: Handles duplicate cards correctly
-========================================== */
-const remainingCards = [];
-
-
-/* ==========================================
-   FIND UNGROUPED CARDS
-
-   If grouped_hand already contains all cards,
-   do not calculate remaining cards again.
-========================================== */
-
-if (
-    showCards &&
-    row.original_hand &&
-    row.original_hand.length > 0
-)
-{
-
-    const originalCardCount =
-        row.original_hand.length;
-
-    const groupedCardCount =
-        usedCards.length;
-
-
-    /*
-       IMPORTANT:
-
-       crdg_solo_arrange_result_hand()
-       returns all physical cards exactly once.
-
-       Therefore if grouped cards count equals
-       original hand count, nothing is remaining.
-    */
-
-    if (groupedCardCount < originalCardCount)
-    {
-
-        const groupedCopy =
-            [...usedCards];
-
-
-        row.original_hand.forEach(card => {
-
-            const index =
-                groupedCopy.indexOf(card);
-
-            if (index >= 0)
-            {
-
-                // Remove only ONE occurrence.
-                // Supports duplicate physical cards
-                // from two-deck rummy.
-
-                groupedCopy.splice(index, 1);
-
-            }
-            else
-            {
-
-                remainingCards.push(card);
-
-            }
-
-        });
-
-    }
-
-}
-
-
-
-
-/* ==========================================
-   SHOW UNGROUPED CARDS AS FINAL GROUP
-========================================== */
-
-if (remainingCards.length > 0)
-{
-    html += `
-        <div class="result-card-group ungrouped-group">
-    `;
+            html +=
+            `
+                <div class="result-card-group ungrouped-group">
+            `;
 
 
             remainingCards.forEach(card => {
 
-            if (displayedCardCount >= MAX_RESULT_CARDS) {
-                return;
-            }
-
-            displayedCardCount++;
-
-            let cardClass =
-                "result-card ungrouped-card";
-
-            if (
-                card.includes("♥") ||
-                card.includes("♦")
-            ) {
-                cardClass += " red-card";
-            }
-
-            if (isJokerCard(card)) {
-                cardClass += " joker-highlight";
-            }
-
-            html += `
-                <div class="${cardClass}">
-                    ${card}
-                </div>
-            `;
-        });
-
-    html += `</div>`;
-}
+                if(
+                    displayedCardCount >= MAX_RESULT_CARDS
+                )
+                {
+                    return;
+                }
 
 
-/* ==========================================
-   NO GROUPING CASE
-========================================== */
+                displayedCardCount++;
 
-if ( 
-    showCards && 
-    (!row.grouped_hand || 
-     row.grouped_hand.length === 0) && 
-    row.original_hand &&
-    remainingCards.length === 0
-)
-{
-    html += `<div class="result-card-group">`;
 
-    row.original_hand.forEach(card => {
+                let cardClass =
+                    "result-card ungrouped-card";
 
-            if (displayedCardCount >= MAX_RESULT_CARDS) {
-                return;
-            }
 
-            displayedCardCount++;
+                if(
+                    card.includes("♥") ||
+                    card.includes("♦")
+                )
+                {
+                    cardClass += " red-card";
+                }
 
-        let cardClass = "result-card";
 
-        if (
-            card.includes("♥") ||
-            card.includes("♦")
-        ) {
-            cardClass += " red-card";
+                if(
+                    isJokerCard(card)
+                )
+                {
+                    cardClass += " joker-highlight";
+                }
+
+
+                html +=
+                `
+                    <div class="${cardClass}">
+                        ${card}
+                    </div>
+                `;
+
+            });
+
+
+            html +=
+                `</div>`;
+
         }
 
-        if (isJokerCard(card)) {
-            cardClass += " joker-highlight";
-        }
 
-        html += `
-            <div class="${cardClass}">
-                ${card}
-            </div>
-        `;
-    });
+        /* ==========================================
+           NO GROUPING CASE
+        ========================================== */
 
-    html += `</div>`;
-}
-
-        tbody.innerHTML += `
-        <tr>
-
-        <td>
-            ${row.display_name}
-        </td>
-
-       <td>
-        ${
+        if(
             showCards &&
-            (row.grouped_hand || row.original_hand)
-            ? html
-            : (
-                row.drop_type === "DROP"
-                    ? "❌ DROP"
-                : row.drop_type === "MID_DROP"
-                    ? "⛔ MID DROP"
-                : row.drop_type === "INVALID_DECLARE"
-                    ? "🚫 INVALID DECLARE"
-                : "-"
-            )
+            (
+                !displayGroups ||
+                displayGroups.length === 0
+            ) &&
+            row.original_hand &&
+            remainingCards.length === 0
+        )
+        {
+
+            html +=
+                `<div class="result-card-group">`;
+
+
+            row.original_hand.forEach(card => {
+
+                if(
+                    displayedCardCount >= MAX_RESULT_CARDS
+                )
+                {
+                    return;
+                }
+
+
+                displayedCardCount++;
+
+
+                let cardClass =
+                    "result-card";
+
+
+                if(
+                    card.includes("♥") ||
+                    card.includes("♦")
+                )
+                {
+                    cardClass += " red-card";
+                }
+
+
+                if(
+                    isJokerCard(card)
+                )
+                {
+                    cardClass += " joker-highlight";
+                }
+
+
+                html +=
+                `
+                    <div class="${cardClass}">
+                        ${card}
+                    </div>
+                `;
+
+            });
+
+
+            html +=
+                `</div>`;
+
         }
-        </td>
-        <td style="text-align:center">
-            ${row.current_deal_score}
-        </td>
 
-        <td style="text-align:center">
-            ${row.points}
-        </td>
 
-        <td style="text-align:center;font-weight:bold;">
-            ${
-                row.player_status === "PLAYING"
-                    ? ""
-                    : row.player_status
-            }
-        </td>
+        /* ==========================================
+           ADD RESULT ROW
+        ========================================== */
 
-        </tr>
+        tbody.innerHTML +=
+        `
+            <tr>
+
+                <td>
+                    ${row.display_name}
+                </td>
+
+
+                <td>
+                    ${
+                        showCards &&
+                        (
+                            displayGroups ||
+                            row.original_hand
+                        )
+                        ? html
+                        :
+                        (
+                            row.drop_type === "DROP"
+                                ? "❌ DROP"
+
+                            : row.drop_type === "MID_DROP"
+                                ? "⛔ MID DROP"
+
+                            : row.drop_type === "INVALID_DECLARE"
+                                ? "🚫 INVALID DECLARE"
+
+                            : "-"
+                        )
+                    }
+                </td>
+
+
+                <td style="text-align:center">
+                    ${row.current_deal_score}
+                </td>
+
+
+                <td style="text-align:center">
+                    ${row.points}
+                </td>
+
+
+                <td style="text-align:center;font-weight:bold;">
+                    ${
+                        row.player_status === "PLAYING"
+                            ? ""
+                            : row.player_status
+                    }
+                </td>
+
+            </tr>
         `;
 
     });
 
 
-    const rejoinPlayers = await loadRejoinCandidates();
+    /* ==========================================
+       CHECK REJOIN PLAYERS
+    ========================================== */
 
-        if(rejoinPlayers.length > 0)
-        {
-            const me = rejoinPlayers.find(
-                p => p.user_id === state.userId
+    const rejoinPlayers =
+        await loadRejoinCandidates();
+
+
+    if(
+        rejoinPlayers.length > 0
+    )
+    {
+
+        const me =
+            rejoinPlayers.find(
+                p =>
+                    p.user_id === state.userId
             );
 
-            if(me)
-            {
-                showReJoinWindow(me);
-            }
+
+        if(me)
+        {
+            showReJoinWindow(me);
         }
+
+    }
+
+
+    /* ==========================================
+       SHOW OBSERVATION WINDOW
+    ========================================== */
 
     document.getElementById(
         "dealResultModal"
     ).style.display = "block";
+
 }
+
 
 
 function isJokerCard(card) {

@@ -1508,4 +1508,26 @@ body.mobile-game-mode .game-stage {
     box-shadow: 0 2px 4px rgba(0,0,0,0.25);
 }
 
+.home-button
+{
+    margin-top: 20px;
+    padding: 12px 35px;
+
+    font-size: 16px;
+    font-weight: bold;
+
+    border: none;
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    background: #2c7be5;
+    color: white;
+}
+
+.home-button:hover
+{
+    opacity: 0.9;
+}
+
 /* The game itself is scaled by responsive.js. */
