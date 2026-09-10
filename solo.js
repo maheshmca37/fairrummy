@@ -4539,7 +4539,9 @@ async function startGame(){
     await supabaseClient.rpc(
       "crdg_start_game",
       {
-        p_table_id: state.tableId
+        
+        p_table_id: state.tableId,
+        p_user_id: state.userId
       }
     );
 
