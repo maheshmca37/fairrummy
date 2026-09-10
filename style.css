@@ -1531,3 +1531,203 @@ body.mobile-game-mode .game-stage {
 }
 
 /* The game itself is scaled by responsive.js. */
+/* ==========================================
+   MAIN OPTIONS
+   ========================================== */
+
+.option-button {
+    width: 100%;
+    min-height: 60px;
+
+    margin-bottom: 15px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: #273640;
+    color: white;
+
+    font-size: 17px;
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+.option-button:active {
+    transform: scale(0.98);
+}
+
+
+/* ==========================================
+   HIDDEN
+   ========================================== */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* ==========================================
+   BACK BUTTON
+   ========================================== */
+
+.back-button {
+    width: 100%;
+    height: 45px;
+
+    margin-top: 10px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #45545e;
+    color: white;
+
+    font-size: 15px;
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+/* =====================================================
+   FRIENDS WAITING ROOM - TABLE ID
+   ===================================================== */
+
+.friend-table-id-box {
+    width: 100%;
+    margin: 15px 0 20px;
+    padding: 20px 15px;
+
+    text-align: center;
+
+    background: #18242d;
+
+    border: 2px solid #00a86b;
+    border-radius: 14px;
+
+    box-shadow: 0 4px 15px rgba(0,0,0,0.30);
+}
+
+
+.friend-table-id-title {
+    font-size: 16px;
+    font-weight: bold;
+
+    margin-bottom: 5px;
+}
+
+
+.friend-table-id {
+    font-size: 42px;
+    font-weight: bold;
+
+    letter-spacing: 5px;
+
+    margin: 5px 0 12px;
+}
+
+
+.friend-share-message {
+    font-size: 18px;
+    font-weight: bold;
+
+    line-height: 1.4;
+}
+
+
+.friend-share-submessage {
+    margin-top: 7px;
+
+    font-size: 14px;
+
+    line-height: 1.4;
+
+    opacity: 0.85;
+}
+
+
+/* =====================================================
+   HOST START AREA
+   ===================================================== */
+
+.host-start-area {
+    width: 100%;
+    margin: 15px 0;
+    text-align: center;
+}
+
+
+.host-start-message {
+    margin-bottom: 10px;
+
+    font-size: 15px;
+    font-weight: bold;
+}
+
+
+.start-game-button {
+    width: 100%;
+    height: 55px;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #00a86b;
+    color: white;
+
+    font-size: 19px;
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+
+.start-game-button:disabled {
+    background: #45545e;
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+
+.start-game-button:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+
+/* =====================================================
+   NON-HOST WAITING MESSAGE
+   ===================================================== */
+
+.guest-waiting-message {
+    width: 100%;
+
+    margin: 15px 0;
+    padding: 14px;
+
+    text-align: center;
+
+    background: #273640;
+
+    border-radius: 10px;
+
+    font-size: 15px;
+    font-weight: bold;
+}
+
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (max-width: 400px) {
+
+    .friend-table-id {
+        font-size: 34px;
+        letter-spacing: 3px;
+    }
+
+    .friend-share-message {
+        font-size: 16px;
+    }
+
+}

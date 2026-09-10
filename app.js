@@ -84,7 +84,6 @@ if(!savedUserId){
   );
 }
 
-let gameStarting = false;
 let gameEntered = false;
 
 let turnTimerHandle = null;
@@ -1116,9 +1115,7 @@ function startObservationTimer()
 
 async function onObservationTimerExpired()
 {
-    console.log(
-        "OBSERVATION TIMER EXPIRED"
-    );
+    
 
     document.getElementById(
         "dealResultModal"
@@ -3695,132 +3692,280 @@ function getRank(card){
 // =========================
 // JOIN TABLE (FIXED)
 // =========================
+// =========================
+// JOIN TABLE
+// =========================
 async function joinTable() {
 
-  const tableId = 777777;// document.getElementById("tableIdInput").value;
-  const password = '5E2D';//document.getElementById("password").value;
-  const nickname = document.getElementById("nickname").value;
+    // =================================================
+    // Get values
+    //
+    // New Friends flow:
+    // values come from localStorage
+    //
+    // Old/manual flow:
+    // values come from the existing HTML inputs
+    // =================================================
 
-  // ✅ THIS IS WHERE IT GOES
-  const userId = savedUserId;
+    let tableId =
+        localStorage.getItem("crdg_table");
 
-  const { data, error } =
-            await supabaseClient.rpc(
-                "crdg_join_table",
-                {
-                    p_table_id: parseInt(tableId),
-                    p_password: password,
-                    p_user_id: userId,
-                    p_display_name: nickname
-                }
-            );
-
-        const joinResult = data?.[0];
-
-        if (error) {
-            console.error(error);
-            alert("Join failed");
-            return;
-        }
-
-        if (!joinResult) {
-            alert("Join failed");
-            return;
-        }
-
-        if (
-            joinResult.status !== "success" &&
-            joinResult.status !== "reconnected"
-        ) {
-            alert(
-                joinResult.message ||
-                "Unable to join table"
-            );
-
-            return;
-        }
+    let nickname =
+        localStorage.getItem("crdg_nickname");
 
 
-        // ------------------------------------------
-        // ONLY SUCCESS / RECONNECTED comes below
-        // ------------------------------------------
+    // -----------------------------------------------
+    // If not coming from tablepage.html,
+    // use existing Join screen fields
+    // -----------------------------------------------
 
-        state.userId =
-            joinResult.user_id;
+    if (!tableId) {
 
-        state.tableId =
-            parseInt(tableId);
+        tableId =
+            document.getElementById("tableIdInput").value;
+    }
 
-        state.nickname =
-            nickname;
+    if (!nickname) {
 
-        state.seatNo =
-            Number(joinResult.seat_no);
+        nickname =
+            document.getElementById("nickname").value;
+    }
 
-        state.fixedSeatNo =
-            Number(joinResult.fixed_seat_no);
 
-        localStorage.setItem(
-            "crdg_user_id",
-            state.userId
+    tableId =
+        parseInt(tableId);
+
+    nickname =
+        (nickname || "").trim();
+
+
+    // -----------------------------------------------
+    // Existing static password
+    // -----------------------------------------------
+
+    const password = "5E2D";
+
+
+    // -----------------------------------------------
+    // Existing UUID identity
+    // -----------------------------------------------
+
+    const userId =
+        savedUserId;
+
+
+    // -----------------------------------------------
+    // Basic validation
+    // -----------------------------------------------
+
+    if (
+        !tableId ||
+        tableId < 100000 ||
+        tableId > 999999
+    ) {
+
+        alert("Invalid Table ID");
+        return;
+    }
+
+
+    if (!nickname) {
+
+        alert("Please enter player name");
+        return;
+    }
+
+
+    // =================================================
+    // JOIN RPC
+    // =================================================
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_join_table",
+            {
+                p_table_id: tableId,
+                p_password: password,
+                p_user_id: userId,
+                p_display_name: nickname
+            }
         );
 
-        const isReconnect =
-            joinResult.status ===
-            "reconnected";
 
-        if (
-            isReconnect &&
-            joinResult.session_id
-        ) {
-            state.sessionId =
-                Number(joinResult.session_id);
+    const joinResult =
+        data?.[0];
 
-            state.joined = true;
 
-            document.getElementById(
-                "joinScreen"
-            ).style.display = "none";
+    // -----------------------------------------------
+    // RPC error
+    // -----------------------------------------------
 
-            document.getElementById(
-                "lobbyScreen"
-            ).style.display = "none";
+    if (error) {
 
-            document.getElementById(
-                "app"
-            ).style.display = "block";
+        console.error(
+            "Join error:",
+            error
+        );
 
-            await loadGame();
-            await loadSessionInfo();
-            await loadPlayers();
+        alert(
+            error.message ||
+            "Join failed"
+        );
 
-           // subscribeRealtime();
+        return;
+    }
 
-           // updateActionButtons();
 
-           // return;
-        }
+    if (!joinResult) {
 
-        // Otherwise continue existing lobby flow
+        alert("Join failed");
+        return;
+    }
+
+
+    // -----------------------------------------------
+    // Check result
+    // -----------------------------------------------
+
+    if (
+        joinResult.status !== "success" &&
+        joinResult.status !== "reconnected"
+    ) {
+
+        alert(
+            joinResult.message ||
+            "Unable to join table"
+        );
+
+        return;
+    }
+
+
+    // =================================================
+    // SAVE STATE
+    // =================================================
+
+    state.userId =
+        joinResult.user_id;
+
+    state.tableId =
+        tableId;
+
+    state.nickname =
+        nickname;
+
+    state.seatNo =
+        Number(joinResult.seat_no);
+
+    state.fixedSeatNo =
+        Number(joinResult.fixed_seat_no);
+
+
+    localStorage.setItem(
+        "crdg_user_id",
+        state.userId
+    );
+
+    localStorage.setItem(
+        "crdg_table",
+        tableId
+    );
+
+    localStorage.setItem(
+        "crdg_nickname",
+        nickname
+    );
+
+
+    // =================================================
+    // RECONNECT
+    // =================================================
+
+    const isReconnect =
+        joinResult.status === "reconnected";
+
+
+    if (
+        isReconnect &&
+        joinResult.session_id
+    ) {
+
+        state.sessionId =
+            Number(joinResult.session_id);
+
         state.joined = true;
 
-        // your existing lobby code continues here
 
-  localStorage.setItem("crdg_table", tableId);
+        document
+            .getElementById("joinScreen")
+            .style.display = "none";
 
-  // UI switch → LOBBY
-  document.getElementById("joinScreen").classList.add("hidden");
-  document.getElementById("lobbyScreen").classList.remove("hidden");
 
-  document.getElementById("lobbyTableId").innerText = tableId;
-  document.getElementById("lobbySeat").innerText = state.seatNo;
+        document
+            .getElementById("lobbyScreen")
+            .style.display = "none";
 
-  alert('Joined Successfully');
-  // start lobby polling
 
-  await postJoinFlow();
-  loadLobbyState();
-  state.lobbyTimerHandle = setInterval(loadLobbyState, 1000);
+        document
+            .getElementById("app")
+            .style.display = "block";
+
+
+        await loadGame();
+        await loadSessionInfo();
+        await loadPlayers();
+
+        return;
+    }
+
+
+    // =================================================
+    // NORMAL LOBBY
+    // =================================================
+
+    state.joined = true;
+
+
+    document
+        .getElementById("joinScreen")
+        .classList.add("hidden");
+
+
+    document
+        .getElementById("lobbyScreen")
+        .classList.remove("hidden");
+
+
+    document
+        .getElementById("lobbyTableId")
+        .innerText = tableId;
+
+
+    document
+        .getElementById("lobbySeat")
+        .innerText =
+            state.seatNo;
+
+
+    // -----------------------------------------------
+    // Existing lobby flow
+    // -----------------------------------------------
+
+    await postJoinFlow();
+
+    loadLobbyState();
+
+
+    clearInterval(
+        state.lobbyTimerHandle
+    );
+
+
+    state.lobbyTimerHandle =
+        setInterval(
+            loadLobbyState,
+            1000
+        );
 }
 
 function startTurnTimer() {
@@ -4242,99 +4387,362 @@ async function loadPlayers() {
     }
 }
 
-
 async function loadLobbyState() {
 
-  const { data, error } =
-    await supabaseClient.rpc(
-      "crdg_get_table_state",
-      {
-        p_table_id: state.tableId
-      }
+    // =================================================
+    // GET TABLE STATE
+    // =================================================
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_get_table_state",
+            {
+                p_table_id: state.tableId
+            }
+        );
+
+
+    if (error) {
+
+        console.error(
+            "Lobby table state error:",
+            error
+        );
+
+        return;
+    }
+
+
+    if (!data || !data.length) {
+        return;
+    }
+
+
+    const s = data[0];
+
+
+    // =================================================
+    // SHOW PLAYER COUNT
+    // =================================================
+
+    document.getElementById(
+        "lobbyPlayers"
+    ).innerText = s.player_count;
+
+
+    // =================================================
+    // GET LOBBY PLAYERS
+    // =================================================
+
+    const {
+        data: players,
+        error: playersError
+    } =
+        await supabaseClient.rpc(
+            "crdg_get_lobby_players",
+            {
+                p_table_id: state.tableId
+            }
+        );
+
+
+    if (playersError) {
+
+        console.error(
+            "Lobby players error:",
+            playersError
+        );
+
+        return;
+    }
+
+
+    // =================================================
+    // CLEAR SEATS
+    // =================================================
+
+    for (let i = 1; i <= 6; i++) {
+
+        const seat =
+            document.getElementById(
+                "seat" + i
+            );
+
+        if (seat) {
+
+            seat.innerText =
+                `Seat ${i} : Empty`;
+        }
+    }
+
+
+    // =================================================
+    // DISPLAY PLAYERS
+    // =================================================
+
+    if (players) {
+
+        players.forEach(p => {
+
+            const seat =
+                document.getElementById(
+                    "seat" + p.seat_no
+                );
+
+            if (seat) {
+
+                seat.innerText =
+                    `Seat ${p.seat_no} : ${p.display_name}`;
+            }
+
+        });
+    }
+
+
+    // =================================================
+    // DETERMINE HOST
+    // =================================================
+
+    const currentUser =
+    String(state.userId).toLowerCase();
+
+const currentPlayer =
+    players?.find(
+        p =>
+            String(p.user_id).toLowerCase() === currentUser
     );
 
-  if(error){
-    console.error(error);
-    return;
-  }
-
-  if(!data || !data.length){
-    return;
-  }
-
-  const s = data[0];
-
-  document.getElementById("lobbyPlayers").innerText =    s.player_count;
-
- // document.getElementById("lobbyTimer").innerText =    s.seconds_remaining;
-
-  const now = new Date().getTime();
-  const start = new Date(s.lobby_started_at).getTime();
-
-  const diff = Math.floor((now - start) / 1000);
-  const remaining = 60 - diff;
-
-document.getElementById("lobbyTimer").innerText =  remaining > 0 ? remaining : 0;
+const isHost =
+    currentPlayer?.is_host === true;
 
 
-const { data: players } =
-await supabaseClient.rpc(
-    "crdg_get_lobby_players",
-    {
-        p_table_id: state.tableId
+    // =================================================
+    // HOST START AREA
+    // =================================================
+
+    const hostStartArea =
+        document.getElementById(
+            "hostStartArea"
+        );
+
+    const guestWaitingMessage =
+        document.getElementById(
+            "guestWaitingMessage"
+        );
+
+    const startButton =
+        document.getElementById(
+            "btnStartGame"
+        );
+
+    const hostStartMessage =
+        document.getElementById(
+            "hostStartMessage"
+        );
+
+
+    if (isHost) {
+
+        // ---------------------------------------------
+        // HOST
+        // ---------------------------------------------
+
+        hostStartArea.style.display =
+            "block";
+
+        guestWaitingMessage.style.display =
+            "none";
+
+
+        if (s.player_count >= 2) {
+
+            startButton.disabled =
+                false;
+
+            hostStartMessage.innerText =
+                "Players are ready. You can start the game.";
+
+        } else {
+
+            startButton.disabled =
+                true;
+
+            hostStartMessage.innerText =
+                "Waiting for at least 2 players...";
+        }
+
+    } else {
+
+        // ---------------------------------------------
+        // OTHER PLAYERS
+        // ---------------------------------------------
+
+        hostStartArea.style.display =
+            "none";
+
+        guestWaitingMessage.style.display =
+            "block";
     }
-);
 
-for(let i = 1; i <= 6; i++) {
 
-  document.getElementById(
-    "seat" + i
-  ).innerText =
-    `Seat ${i} : Empty`;
+    // =================================================
+    // TABLE ALREADY RUNNING
+    // =================================================
+
+    if (s.status === "running") {
+
+        const {
+            data: sessions
+        } =
+            await supabaseClient
+                .from("crdg_game_sessions")
+                .select("session_id")
+                .eq(
+                    "table_id",
+                    state.tableId
+                )
+                .order(
+                    "session_id",
+                    {
+                        ascending: false
+                    }
+                )
+                .limit(1);
+
+
+        if (
+            sessions &&
+            sessions.length
+        ) {
+
+            state.sessionId =
+                sessions[0].session_id;
+
+            await enterGame();
+        }
+    }
 
 }
 
+// =====================================================
+// HOST START GAME
+// =====================================================
 
-players.forEach(p => {
+async function hostStartGame() {
 
-  document.getElementById(
-    "seat" + p.seat_no
-  ).innerText =
-    `Seat ${p.seat_no} : ${p.display_name}`;
+    // -----------------------------------------------
+    // Prevent accidental double-click
+    // -----------------------------------------------
 
-});
+    const button =
+        document.getElementById(
+            "btnStartGame"
+        );
 
 
+    if (!button) {
+        return;
+    }
 
-  if (
-  !gameStarting &&
-  state.seatNo === 1 &&
-  s.player_count >= 2 &&
-  s.seconds_remaining <= 0 &&
-  s.status === "waiting"
-){
-    gameStarting = true;
-    await startGame();
-}
 
-  if(s.status === "running"){
+    if (button.disabled) {
+        return;
+    }
 
-    const { data: sessions } =
-    await supabaseClient
-      .from("crdg_game_sessions")
-      .select("session_id")
-      .eq("table_id", state.tableId)
-      .order("session_id", { ascending: false })
-      .limit(1);
 
-    if(sessions && sessions.length){
+    button.disabled = true;
+
+    button.innerText =
+        "STARTING...";
+
+
+    try {
+
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_start_game",
+                {
+                    p_table_id: state.tableId,
+                    p_user_id: state.userId
+                }
+            );
+
+
+        // -------------------------------------------
+        // ERROR
+        // -------------------------------------------
+
+        if (error) {
+
+            console.error(
+                "Host start game error:",
+                error
+            );
+
+            alert(
+                error.message ||
+                "Unable to start game"
+            );
+
+            button.disabled = false;
+
+            button.innerText =
+                "▶ START GAME";
+
+            return;
+        }
+
+
+        // -------------------------------------------
+        // NO SESSION
+        // -------------------------------------------
+
+        if (
+            !data ||
+            !data.length
+        ) {
+
+            alert(
+                "Unable to start game"
+            );
+
+            button.disabled = false;
+
+            button.innerText =
+                "▶ START GAME";
+
+            return;
+        }
+
+
+        // -------------------------------------------
+        // GAME STARTED
+        // -------------------------------------------
 
         state.sessionId =
-          sessions[0].session_id;
+            data[0].session_id;
+
 
         await enterGame();
+
+
+    } catch (error) {
+
+        console.error(
+            "Start game exception:",
+            error
+        );
+
+        alert(
+            "Unable to start game"
+        );
+
+        button.disabled = false;
+
+        button.innerText =
+            "▶ START GAME";
     }
-}
+
 }
 
 
@@ -4371,29 +4779,51 @@ async function enterGame(){
 }
 
 
+async function startGame() {
 
-async function startGame(){
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_start_game",
+            {
+                p_table_id: state.tableId,
+                p_user_id: state.userId
+            }
+        );
 
-  const { data, error } =
-    await supabaseClient.rpc(
-      "crdg_start_game",
-      {
-        p_table_id: state.tableId
-      }
-    );
 
-  if(error){
-    console.error(error);
-    return;
-  }
+    if (error) {
 
-  if(data && data.length){
+        console.error(
+            "Start game error:",
+            error
+        );
 
-      state.sessionId =
+        alert(
+            error.message ||
+            "Unable to start game"
+        );
+
+        return false;
+    }
+
+
+    if (!data || !data.length) {
+
+        alert(
+            "Unable to start game"
+        );
+
+        return false;
+    }
+
+
+    state.sessionId =
         data[0].session_id;
 
-      await enterGame();
-  }
+
+    await enterGame();
+
+    return true;
 }
 
 
@@ -4705,12 +5135,26 @@ async function loadDealResults()
     }
 
 
+    const jokerCard = state.jokerCard || "";
+
+    const isRedJoker =
+        jokerCard.includes("♥") ||
+        jokerCard.includes("♦");
+
+    const jokerStyle =
+        isRedJoker
+            ? 'color:red !important; -webkit-text-fill-color:red !important;'
+            : 'color:white !important; -webkit-text-fill-color:white !important;';
+
     document.getElementById(
         "resultJokerCard"
     ).innerHTML =
     `
     <span class="result-joker">
-        Joker : ${state.jokerCard}
+        Joker :
+        <span style="${jokerStyle}">
+            ${jokerCard}
+        </span>
     </span>
     `;
 
@@ -5123,3 +5567,65 @@ async function postJoinFlow() {
     await enterGame();
   }
 }
+
+
+// =====================================================
+// FRIENDS PAGE AUTO JOIN
+// =====================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    async function () {
+
+        const tableId =
+            localStorage.getItem("crdg_table");
+
+        const nickname =
+            localStorage.getItem("crdg_nickname");
+
+
+        // ---------------------------------------------
+        // Only auto-join when coming from tablepage
+        // ---------------------------------------------
+
+        if (
+            !tableId ||
+            !nickname
+        ) {
+            return;
+        }
+
+
+        // ---------------------------------------------
+        // Make old join-screen fields contain values
+        // ---------------------------------------------
+
+        const tableInput =
+            document.getElementById("tableIdInput");
+
+        const nicknameInput =
+            document.getElementById("nickname");
+
+
+        if (tableInput) {
+
+            tableInput.value =
+                tableId;
+        }
+
+
+        if (nicknameInput) {
+
+            nicknameInput.value =
+                nickname;
+        }
+
+
+        // ---------------------------------------------
+        // Automatically join
+        // ---------------------------------------------
+
+        await joinTable();
+
+    }
+);

@@ -31,29 +31,143 @@
   </section>
 
   <!-- LOBBY SCREEN -->
-  <section id="lobbyScreen" class="lobby-screen screen-layer hidden">
+<section id="lobbyScreen" class="lobby-screen screen-layer hidden">
+
     <div class="lobby-wrap">
-      <h2>🎮 Waiting Room</h2>
 
-      <div class="lobby-card">
-        <div>Table: <span id="lobbyTableId">-</span></div>
-        <div>Your Seat: <span id="lobbySeat">-</span></div>
-        <div>Players: <span id="lobbyPlayers">0</span>/6</div>
-        <div>Starts In: <span id="lobbyTimer">60</span> sec</div>
-      </div>
+        <h2>🎮 Waiting Room</h2>
 
-      <h3>Joined Players</h3>
 
-      <div id="lobbyPlayerList" class="lobby-player-list">
-        <div id="seat1">Seat 1: Empty</div>
-        <div id="seat2">Seat 2: Empty</div>
-        <div id="seat3">Seat 3: Empty</div>
-        <div id="seat4">Seat 4: Empty</div>
-        <div id="seat5">Seat 5: Empty</div>
-        <div id="seat6">Seat 6: Empty</div>
-      </div>
+        <!-- ======================================
+             TABLE ID
+             ====================================== -->
+
+        <div class="friend-table-id-box">
+
+            <div class="friend-table-id-title">
+                TABLE ID
+            </div>
+
+            <div
+                id="lobbyTableId"
+                class="friend-table-id"
+            >
+                ------
+            </div>
+
+            <div class="friend-share-message">
+                📢 SHARE THIS TABLE ID WITH YOUR FRIENDS
+            </div>
+
+            <div class="friend-share-submessage">
+                Ask your friends to enter this Table ID
+                and join your table.
+            </div>
+
+        </div>
+
+
+        <!-- ======================================
+             LOBBY INFORMATION
+             ====================================== -->
+
+        <div class="lobby-card">
+
+            <div>
+                Your Seat:
+                <span id="lobbySeat">-</span>
+            </div>
+
+            <div>
+                Players:
+                <span id="lobbyPlayers">0</span>/6
+            </div>
+
+        </div>
+
+
+        <!-- ======================================
+             HOST START GAME AREA
+             ====================================== -->
+
+        <div
+            id="hostStartArea"
+            class="host-start-area"
+            style="display:none;"
+        >
+
+            <div
+                id="hostStartMessage"
+                class="host-start-message"
+            >
+                Waiting for at least 2 players...
+            </div>
+
+            <button
+                id="btnStartGame"
+                type="button"
+                class="start-game-button"
+                onclick="hostStartGame()"
+            >
+                ▶ START GAME
+            </button>
+
+        </div>
+
+
+        <!-- ======================================
+             NON-HOST MESSAGE
+             ====================================== -->
+
+        <div
+            id="guestWaitingMessage"
+            class="guest-waiting-message"
+            style="display:none;"
+        >
+            ⏳ Waiting for the host to start the game...
+        </div>
+
+
+        <!-- ======================================
+             JOINED PLAYERS
+             ====================================== -->
+
+        <h3>Joined Players</h3>
+
+        <div
+            id="lobbyPlayerList"
+            class="lobby-player-list"
+        >
+
+            <div id="seat1">
+                Seat 1: Empty
+            </div>
+
+            <div id="seat2">
+                Seat 2: Empty
+            </div>
+
+            <div id="seat3">
+                Seat 3: Empty
+            </div>
+
+            <div id="seat4">
+                Seat 4: Empty
+            </div>
+
+            <div id="seat5">
+                Seat 5: Empty
+            </div>
+
+            <div id="seat6">
+                Seat 6: Empty
+            </div>
+
+        </div>
+
     </div>
-  </section>
+
+</section>
 
   <!-- GAME SCREEN -->
   <div id="app" class="game-viewport hidden">
