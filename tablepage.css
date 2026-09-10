@@ -244,3 +244,102 @@ input[type="number"] {
     transform: scale(0.97);
 }
 
+
+/* ==========================================
+   MOBILE COMPACT LAYOUT
+   ========================================== */
+
+@media (max-width: 600px) {
+
+    .page-container {
+        padding: 10px 10px 20px;
+    }
+
+    h1 {
+        font-size: 22px;
+        margin: 5px 0 15px;
+    }
+
+    .card {
+        padding: 14px;
+        margin-bottom: 12px;
+        border-radius: 10px;
+    }
+
+    .card h2 {
+        font-size: 17px;
+        margin-bottom: 12px;
+    }
+
+    label {
+        margin-top: 9px;
+        margin-bottom: 5px;
+        font-size: 13px;
+    }
+
+    input[type="text"],
+    input[type="tel"],
+    input[type="number"] {
+        height: 40px;
+        padding: 0 10px;
+        font-size: 15px;
+    }
+
+    .pool-options {
+        gap: 8px;
+        margin-top: 3px;
+    }
+
+    .pool-option {
+        min-height: 40px;
+        border-radius: 7px;
+    }
+
+    .pool-option span {
+        font-size: 14px;
+    }
+
+    .main-button {
+        height: 42px;
+        margin-top: 14px;
+        font-size: 15px;
+    }
+
+    #message {
+        min-height: 24px;
+        margin-top: 7px;
+        font-size: 14px;
+    }
+
+    /* Main CREATE / JOIN buttons */
+
+    #mainOptions {
+        margin-bottom: 12px;
+    }
+
+    .option-button {
+        min-height: 46px;
+        margin-bottom: 9px;
+        padding: 9px;
+        border-radius: 9px;
+        font-size: 14px;
+    }
+
+    /* Back button */
+
+    .back-button {
+        height: 38px;
+        margin-top: 7px;
+        font-size: 13px;
+    }
+
+    /* Home button */
+
+    .home-button {
+        width: 115px;
+        height: 38px;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+}
