@@ -1,9 +1,12 @@
 // =========================
 // SUPABASE INIT
 // =========================
+
+
 const SUPABASE_URL ='https://dbfycihbcosuxxkrmbhl.supabase.co';
 
 const SUPABASE_KEY ='sb_publishable_aOyXtAbzrrX0Z9jPAU1qEA_0ZnK35BX';
+
 
 const supabaseClient =
 supabase.createClient(
@@ -33,6 +36,7 @@ let state = {
    ],
    openPile: [],
   selectedCard: null,
+  selectedCards: [],
   jokerCard:null,
   lobbyTimerHandle: null,
   turnStartedAt:null,
@@ -176,11 +180,11 @@ openVisual.addEventListener("drop", async (e) => {
         return;
     }
 
-    state.selectedCard = {
+    state.selectedCards = [{
         card: state.dragCard.card,
         group: state.dragCard.group,
         index: state.dragCard.index
-    };
+    }];
 
     state.dragCard = null;
 
@@ -498,11 +502,11 @@ function enableMobileCardDrag() {
             )
         ) {
 
-            state.selectedCard = {
+            state.selectedCards = [{
                 card: dragCardData.card,
                 group: dragCardData.group,
                 index: dragCardData.index
-            };
+            }];
 
             await discard();
 
@@ -594,7 +598,7 @@ function enableMobileCardDrag() {
                 movedCard
             );
 
-        state.selectedCard = null;
+        state.selectedCards = [];
 
         renderHand();
         calculateDealScore();
@@ -623,7 +627,7 @@ function enableMobileCardDrag() {
                             cardToMove
                         );
 
-                    state.selectedCard = null;
+                    state.selectedCards = [];
 
                     renderHand();
                     calculateDealScore();
@@ -640,6 +644,305 @@ function enableMobileCardDrag() {
         removeGhost();
     }
 );
+}
+
+
+// ==========================================
+// GROUP BUTTON
+// ==========================================
+
+function updateGroupButton() {
+
+    // Remove existing button
+    const oldButton =
+        document.getElementById("groupActionButton");
+
+    if (oldButton) {
+        oldButton.remove();
+    }
+
+
+    // No selection
+    if (
+        !state.selectedCards ||
+        state.selectedCards.length < 2
+    ) {
+        return;
+    }
+
+
+    // ==========================================
+    // FIND NEXT AVAILABLE GROUP
+    // G1 -> G2 -> G3 -> G4
+    // ==========================================
+
+    let targetGroup = -1;
+
+    for (let g = 0; g < 4; g++) {
+
+        if (
+            !state.groups[g] ||
+            state.groups[g].length === 0
+        ) {
+            targetGroup = g;
+            break;
+        }
+    }
+
+
+    // ==========================================
+    // ALREADY 4 GROUPS
+    // ==========================================
+
+    if (targetGroup === -1) {
+
+        return;
+    }
+
+
+    // ==========================================
+    // GET SELECTED CARD ELEMENTS
+    // ==========================================
+
+    const selectedElements = [];
+
+    state.selectedCards.forEach(selected => {
+
+        const groupEl =
+            document.getElementById(
+                "group" + selected.group
+            );
+
+        if (!groupEl) {
+            return;
+        }
+
+        const cards =
+            groupEl.querySelectorAll(".card");
+
+        const cardEl =
+            cards[selected.index];
+
+        if (cardEl) {
+            selectedElements.push(cardEl);
+        }
+
+    });
+
+
+    if (selectedElements.length === 0) {
+        return;
+    }
+
+
+    // ==========================================
+    // FIND POSITION ABOVE SELECTED CARDS
+    // ==========================================
+
+    let minTop = Infinity;
+    let minLeft = Infinity;
+
+    selectedElements.forEach(cardEl => {
+
+        const rect =
+            cardEl.getBoundingClientRect();
+
+        minTop =
+            Math.min(minTop, rect.top);
+
+        minLeft =
+            Math.min(minLeft, rect.left);
+
+    });
+
+
+    // ==========================================
+    // CREATE BUTTON
+    // ==========================================
+
+    const button =
+        document.createElement("button");
+
+    button.id =
+        "groupActionButton";
+
+    button.textContent =
+        "GROUP";
+
+
+    button.style.position = "fixed";
+
+    button.style.left =
+        `${minLeft}px`;
+
+    button.style.top =
+        `${Math.max(10, minTop - 48)}px`;
+
+    button.style.zIndex =
+        "9999";
+
+    button.style.padding =
+        "8px 18px";
+
+    button.style.fontSize =
+        "14px";
+
+    button.style.fontWeight =
+        "bold";
+
+    button.style.borderRadius =
+        "8px";
+
+    button.style.cursor =
+        "pointer";
+
+
+    // ==========================================
+    // GROUP CLICK
+    // ==========================================
+
+    button.onclick = () => {
+
+        groupSelectedCards();
+    };
+
+
+    document.body.appendChild(button);
+}
+
+
+// ==========================================
+// GROUP SELECTED CARDS
+// ==========================================
+
+function groupSelectedCards() {
+
+    if (
+        !state.selectedCards ||
+        state.selectedCards.length < 2
+    ) {
+        return;
+    }
+
+
+    // ==========================================
+    // FIND NEXT AVAILABLE GROUP
+    // ==========================================
+
+    let targetGroup = -1;
+
+    for (let g = 0; g < 4; g++) {
+
+        if (
+            !state.groups[g] ||
+            state.groups[g].length === 0
+        ) {
+            targetGroup = g;
+            break;
+        }
+    }
+
+
+    // ==========================================
+    // MAXIMUM 4 GROUPS
+    // ==========================================
+
+    if (targetGroup === -1) {
+
+        alert("Maximum 4 groups allowed");
+
+        return;
+    }
+
+
+    // ==========================================
+    // COPY SELECTED CARDS
+    // ==========================================
+
+    const selectedCards =
+        [...state.selectedCards];
+
+
+    // ==========================================
+    // REMOVE SELECTED CARDS
+    // FROM THEIR ORIGINAL GROUPS
+    //
+    // IMPORTANT:
+    // Remove from highest index first
+    // so indexes do not shift.
+    // ==========================================
+
+    const groupedBySource = {};
+
+
+    selectedCards.forEach(item => {
+
+        if (!groupedBySource[item.group]) {
+
+            groupedBySource[item.group] = [];
+        }
+
+        groupedBySource[item.group].push(item);
+    });
+
+
+    Object.keys(groupedBySource).forEach(groupKey => {
+
+        const sourceGroup =
+            Number(groupKey);
+
+        groupedBySource[groupKey]
+            .sort((a, b) => b.index - a.index);
+
+
+        groupedBySource[groupKey]
+            .forEach(item => {
+
+                state.groups[sourceGroup]
+                    .splice(item.index, 1);
+
+            });
+
+    });
+
+
+    // ==========================================
+    // ADD ALL SELECTED CARDS TO TARGET GROUP
+    // ==========================================
+
+    selectedCards.forEach(item => {
+
+        state.groups[targetGroup]
+            .push(item.card);
+
+    });
+
+
+    // ==========================================
+    // CLEAR SELECTION
+    // ==========================================
+
+    state.selectedCards = [];
+
+
+    // Remove button
+    const button =
+        document.getElementById(
+            "groupActionButton"
+        );
+
+    if (button) {
+        button.remove();
+    }
+
+
+    // ==========================================
+    // REDRAW
+    // ==========================================
+
+    renderHand();
+
+    calculateDealScore();
 }
 
 // =========================
@@ -681,19 +984,61 @@ function renderHand() {
     
     showBaseTableHand();
 
+    
+
     for(let g = 0; g < 5; g++) {
 
-        const groupEl =
-            document.getElementById("group" + g);
+    const groupEl =
+        document.getElementById("group" + g);
+
+    if(!state.groups[g]) {
+        state.groups[g] = [];
+    }
+
+
+    // ==========================================
+    // G1-G4
+    // Show only when cards exist
+    // ==========================================
+
+    if(g < 4) {
+
+        if(state.groups[g].length === 0) {
+
+            groupEl.style.display = "none";
+
+        }
+        else {
+
+            groupEl.style.display = "flex";
+
+            groupEl.innerHTML =
+                `<div class="group-title">
+                    G${g + 1}
+                 </div>`;
+        }
+    }
+
+
+    // ==========================================
+    // G5 = UNGROUPED BUCKET
+    //
+    // Never call it G5
+    // Always visible when it has cards
+    // ==========================================
+
+    else {
+
+        groupEl.style.display =
+            state.groups[g].length > 0
+                ? "flex"
+                : "none";
 
         groupEl.innerHTML =
             `<div class="group-title">
-                G${g + 1}
+                UNGROUPED
              </div>`;
-
-        if(!state.groups[g]) {
-            state.groups[g] = [];
-        }
+    }
 
         // DROP ON EMPTY GROUP / GROUP AREA
 
@@ -893,17 +1238,25 @@ function renderHand() {
 
             // SELECTED CARD
 
-            if(
-                state.selectedCard &&
-                state.selectedCard.card === card &&
-                state.selectedCard.group === g
-            ){
-                div.classList.add(
-                    "selected"
-                );
+            // ==========================================
+            // MULTI CARD SELECTION
+            // ==========================================
+
+            if (
+                state.selectedCards &&
+                state.selectedCards.some(
+                    s =>
+                        s.group === g &&
+                        s.index === index
+                )
+            ) {
+                div.classList.add("selected");
             }
 
+
+            // ==========================================
             // CLICK
+            // ==========================================
 
             div.onclick = () => {
 
@@ -911,29 +1264,51 @@ function renderHand() {
                     return;
                 }
 
-                // Any click removes "newly picked" highlight
+                // Remove newly picked highlight
                 state.pickedCard = null;
 
-                // If same exact card is already selected,
-                // clicking it again deselects it
-                if (
-                    state.selectedCard &&
-                    state.selectedCard.group === g &&
-                    state.selectedCard.index === index
-                ) {
+                if (!state.selectedCards) {
+                    state.selectedCards = [];
+                }
 
-                    state.selectedCard = null;
+                // Check whether this card is already selected
+                const selectedIndex =
+                    state.selectedCards.findIndex(
+                        s =>
+                            s.group === g &&
+                            s.index === index
+                    );
+
+
+                // ==========================================
+                // ALREADY SELECTED → DESELECT
+                // ==========================================
+
+                if (selectedIndex !== -1) {
+
+                    state.selectedCards.splice(
+                        selectedIndex,
+                        1
+                    );
 
                 }
+
+                // ==========================================
+                // NOT SELECTED → SELECT
+                // ==========================================
+
                 else {
 
-                    state.selectedCard = {
+                    state.selectedCards.push({
+
                         card: card,
                         group: g,
                         index: index
-                    };
+
+                    });
 
                 }
+
 
                 renderHand();
                 calculateDealScore();
@@ -956,6 +1331,8 @@ function renderHand() {
         });
 
     }
+
+   updateGroupButton();
 
 }
 
@@ -2026,6 +2403,14 @@ async function dropCurrentDeal()
 // =========================
 // DISCARD
 // =========================
+function getSingleSelectedCard(actionName = "action") {
+    const selected = state.selectedCards || [];
+    if (selected.length === 1) return selected[0];
+    if (selected.length > 1) alert(`Please select only one card for ${actionName}.`);
+    else alert(`Please select one card for ${actionName}.`);
+    return null;
+}
+
 async function discard() {
      
 
@@ -2051,10 +2436,8 @@ async function discard() {
         return;
     }
 
-    if (!state.selectedCard) {
-        alert("Please select a card to discard.");
-        return;
-    }
+    const cardToRemove = getSingleSelectedCard("discard");
+    if (!cardToRemove) return;
 
     // existing discard code...
 
@@ -2069,15 +2452,6 @@ async function discard() {
         alert("Pick a card first");
         return;
     }
-
-    if (!state.selectedCard) {
-
-        alert("Select a card to discard");
-        return;
-    }
-
-    const cardToRemove =
-        state.selectedCard;
 
     const { data, error } =
         await supabaseClient.rpc(
@@ -2109,7 +2483,7 @@ async function discard() {
             1
         );
 
-        state.selectedCard = null;
+        state.selectedCards = [];
 
             // Stop the completed turn timer immediately
         clearInterval(state.turnTimerInterval);
@@ -2120,7 +2494,7 @@ async function discard() {
         ).innerText = "0";
 
         // Clear old card selection
-        state.selectedCard = null;
+        state.selectedCards = [];
         state.dragCard = null;
 
         // Load the new turn and its new central timer
@@ -3538,47 +3912,101 @@ async function loadGame() {
         handleEliminatedPlayer();
     }
 
+        // ==========================================
+        // INITIAL HAND ORDER
+        // G1-G4 = USER GROUPS
+        // G5    = UNGROUPED CARDS
+        // ==========================================
 
-const spades = [];
-const hearts = [];
-const diamonds = [];
-const clubs = [];
-const jokers = [];
-
-
-state.hand.forEach(card => {
-
-    if(card === "JOKER"){
-        jokers.push(card);
-    }
-    else if(card.includes("♠")){
-        spades.push(card);
-    }
-    else if(card.includes("♥")){
-        hearts.push(card);
-    }
-    else if(card.includes("♦")){
-        diamonds.push(card);
-    }
-    else if(card.includes("♣")){
-        clubs.push(card);
-    }
-
-});
+        const spades = [];
+        const hearts = [];
+        const diamonds = [];
+        const clubs = [];
+        const jokers = [];
 
 
-spades.sort((a,b)=>getRank(a)-getRank(b));
-hearts.sort((a,b)=>getRank(a)-getRank(b));
-diamonds.sort((a,b)=>getRank(a)-getRank(b));
-clubs.sort((a,b)=>getRank(a)-getRank(b));
+        // ------------------------------------------
+        // Separate cards by suit
+        // ------------------------------------------
 
-state.groups = [
-    spades,
-    hearts,
-    diamonds,
-    clubs,
-    jokers
-];
+        state.hand.forEach(card => {
+
+            if (card === "JOKER") {
+
+                jokers.push(card);
+
+            }
+            else if (card.includes("♥")) {
+
+                hearts.push(card);
+
+            }
+            else if (card.includes("♠")) {
+
+                spades.push(card);
+
+            }
+            else if (card.includes("♦")) {
+
+                diamonds.push(card);
+
+            }
+            else if (card.includes("♣")) {
+
+                clubs.push(card);
+
+            }
+
+        });
+
+
+        // ------------------------------------------
+        // Sort each suit by rank
+        // A,2,3,4,5,6,7,8,9,10,J,Q,K
+        // ------------------------------------------
+
+        hearts.sort(
+            (a, b) => getRank(a) - getRank(b)
+        );
+
+        spades.sort(
+            (a, b) => getRank(a) - getRank(b)
+        );
+
+        diamonds.sort(
+            (a, b) => getRank(a) - getRank(b)
+        );
+
+        clubs.sort(
+            (a, b) => getRank(a) - getRank(b)
+        );
+
+
+        // ------------------------------------------
+        // All cards initially go into G5
+        //
+        // G1-G4 = empty user groups
+        // G5    = ungrouped bucket
+        //
+        // Order:
+        // ♥ → ♠ → ♦ → ♣ → JOKER
+        // ------------------------------------------
+
+        const ungroupedCards = [
+            ...hearts,
+            ...spades,
+            ...diamonds,
+            ...clubs,
+            ...jokers
+        ];
+
+        state.groups = [
+            [],              // G1
+            [],              // G2
+            [],              // G3
+            [],              // G4
+            ungroupedCards   // G5 = ungrouped
+        ];
 
 
  //document.getElementById("openVisual").innerText = data.open_pile?.slice(-1)[0] || "-";
@@ -3588,7 +4016,7 @@ state.groups = [
   //document.getElementById("stockCard").innerText = data.stock_pile?.length || 0;
 
     // Clear selection belonging to the old hand
-state.selectedCard = null;
+state.selectedCards = [];
 state.dragCard = null;
 
 // Display the refreshed database hand
@@ -4854,12 +5282,8 @@ async function declareGame() {
         return;
     }
 
-    if (!state.selectedCard) {
-        alert("Please select one card to discard before declaring.");
-        return;
-    }
-
-    // existing declaration code...
+    const selectedCard = getSingleSelectedCard("declaration");
+    if (!selectedCard) return;
 
 
 
@@ -4879,20 +5303,11 @@ async function declareGame() {
         return;
     }
 
-    if(!state.selectedCard){
-
-        alert(
-            "Select one card before declaration"
-        );
-
-        return;
-    }
-
     if(!confirm( "Confirm Declaration?" )){
         return;
     }
 
-    const declareCard =  state.selectedCard.card;
+    const declareCard =  selectedCard.card;
 
     // Create copy of groups
 
@@ -4904,9 +5319,9 @@ async function declareGame() {
       // Remove selected card
 
       groupsForDeclaration[
-          state.selectedCard.group
+          selectedCard.group
       ].splice(
-          state.selectedCard.index,
+          selectedCard.index,
           1
       );
 
@@ -4939,7 +5354,7 @@ async function declareGame() {
           );
 
 
-            const declareCard = state.selectedCard.card;
+            const declareCard = selectedCard.card;
 
             const { data, error } =
                 await supabaseClient.rpc(
@@ -4959,13 +5374,13 @@ async function declareGame() {
             // NOW remove from actual UI
 
             state.groups[
-                state.selectedCard.group
+                selectedCard.group
             ].splice(
-                state.selectedCard.index,
+                selectedCard.index,
                 1
             );
 
-            state.selectedCard = null;
+            state.selectedCards = [];
 
             renderHand();
 
@@ -4989,7 +5404,7 @@ async function declareGame() {
         state.isInvalidDeclaration = true;
         state.isDropped = true;
         state.dropType = "INVALID_DECLARE";
-        const declareCard = state.selectedCard.card;
+        const declareCard = selectedCard.card;
 
         const { data, error } =
             await supabaseClient.rpc(
