@@ -1344,7 +1344,7 @@ if (g === 4 && index > 0) {
         previousSuit &&
         currentSuit !== previousSuit
     ) {
-        div.style.marginLeft = "22px";
+        div.style.marginLeft = "15px";
     }
 }
 
