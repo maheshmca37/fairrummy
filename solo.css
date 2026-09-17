@@ -607,7 +607,7 @@ button {
 
 .group-box {
     width: max-content;
-    min-width: 112px;
+    min-width: 102px;
 
     min-height: 195px;
 
@@ -1139,11 +1139,11 @@ body.mobile-game-mode .game-stage {
 
 
 .group-box:has(.card) {
-    padding-right: 35px;
+    padding-right: 9px;
 }
 
 .group-box:not(:has(.card)) {
-    min-width: 112px;
+    min-width: 102px;
 }
 
 

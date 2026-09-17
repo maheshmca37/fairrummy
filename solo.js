@@ -138,39 +138,106 @@ document
     );
 
 
+// ==========================================
+// OPEN / STOCK -> G1-G6 DRAG
+// ==========================================
+
 const openVisual =
     document.getElementById("openVisual");
 
-openVisual.addEventListener("dragstart", (e) => {
+const stockCard =
+    document.getElementById("stockCard");
 
-    e.dataTransfer.setData(
-        "text/plain",
-        "OPEN_CARD"
-    );
 
-    e.dataTransfer.effectAllowed = "move";
-});
+// ------------------------------------------
+// OPEN CARD DRAG SOURCE
+// ------------------------------------------
 
-const group5 =
-    document.getElementById("group4");
+if (openVisual) {
 
-group5.addEventListener("dragover", (e) => {
-    e.preventDefault();
-});
+    openVisual.addEventListener("dragstart", (e) => {
 
-group5.addEventListener("drop", async (e) => {
+        e.dataTransfer.setData(
+            "text/plain",
+            "OPEN_CARD"
+        );
 
-    e.preventDefault();
+        e.dataTransfer.effectAllowed = "move";
+    });
+}
 
-    const source =
-        e.dataTransfer.getData("text/plain");
 
-    if(source !== "OPEN_CARD"){
-        return;
+// ------------------------------------------
+// STOCK CARD DRAG SOURCE
+// ------------------------------------------
+
+if (stockCard) {
+
+    stockCard.draggable = true;
+
+    stockCard.addEventListener("dragstart", (e) => {
+
+        e.dataTransfer.setData(
+            "text/plain",
+            "STOCK_CARD"
+        );
+
+        e.dataTransfer.effectAllowed = "move";
+    });
+}
+
+
+// ------------------------------------------
+// ALL G1-G6 ARE DROP TARGETS
+// ------------------------------------------
+
+for (let targetGroup = 0; targetGroup < 6; targetGroup++) {
+
+    const groupEl =
+        document.getElementById(
+            "group" + targetGroup
+        );
+
+    if (!groupEl) {
+        continue;
     }
 
-    await draw("open");
-});
+    groupEl.addEventListener("dragover", (e) => {
+        e.preventDefault();
+    });
+
+    groupEl.addEventListener("drop", async (e) => {
+
+        e.preventDefault();
+
+        const source =
+            e.dataTransfer.getData("text/plain");
+
+        if (
+            source !== "OPEN_CARD" &&
+            source !== "STOCK_CARD"
+        ) {
+            return;
+        }
+
+        if (source === "OPEN_CARD") {
+
+            await draw(
+                "open",
+                targetGroup
+            );
+
+        }
+        else if (source === "STOCK_CARD") {
+
+            await draw(
+                "stock",
+                targetGroup
+            );
+        }
+    });
+}
+
 
 openVisual.addEventListener("dragover", (e) => {
     e.preventDefault();
@@ -211,14 +278,29 @@ function enableMobileCardDrag() {
     const openVisual =
     document.getElementById("openVisual");
 
-    const group5 =
-        document.getElementById("group4");
+    const groupTargets = [];
+
+    for (let g = 0; g < 6; g++) {
+
+        const groupEl =
+            document.getElementById("group" + g);
+
+        if (groupEl) {
+            groupTargets.push({
+                group: g,
+                element: groupEl
+            });
+        }
+    }
+
+
+
 
     const hand =
         document.getElementById("my-hand");
 
-    if (!openVisual || !group5 || !hand) {
-        return;
+    if (!openVisual || !hand) {
+      return;
     }
 
     function createGhost(text, x, y) {
@@ -298,6 +380,24 @@ function enableMobileCardDrag() {
         );
     }
 
+    function getTargetGroup(x, y) {
+
+    for (const target of groupTargets) {
+
+        if (
+            isInside(
+                target.element,
+                x,
+                y
+            )
+        ) {
+            return target.group;
+        }
+    }
+
+    return -1;
+    }
+
 
     /* =====================================
        OPEN CARD -> GROUP 5
@@ -348,15 +448,18 @@ function enableMobileCardDrag() {
                 return;
             }
 
-            if (
-                isInside(
-                    group5,
+            const targetGroup =
+                getTargetGroup(
                     e.clientX,
                     e.clientY
-                )
-            ) {
+                );
 
-                await draw("open");
+            if (targetGroup !== -1) {
+
+                await draw(
+                    "open",
+                    targetGroup
+                );
             }
 
             dragType = null;
@@ -650,6 +753,95 @@ function enableMobileCardDrag() {
         removeGhost();
     }
 );
+
+// =====================================
+// STOCK CARD -> G1-G6
+// =====================================
+
+const stockCard =
+    document.getElementById("stockCard");
+
+if (stockCard) {
+
+    stockCard.addEventListener(
+        "pointerdown",
+        function (e) {
+
+            if (e.pointerType === "mouse") {
+                return;
+            }
+
+            dragType = "STOCK_CARD";
+
+            createGhost(
+                "CARD",
+                e.clientX,
+                e.clientY
+            );
+
+            stockCard.setPointerCapture(
+                e.pointerId
+            );
+        }
+    );
+
+
+    stockCard.addEventListener(
+        "pointermove",
+        function (e) {
+
+            if (dragType !== "STOCK_CARD") {
+                return;
+            }
+
+            moveGhost(
+                e.clientX,
+                e.clientY
+            );
+        }
+    );
+
+
+    stockCard.addEventListener(
+        "pointerup",
+        async function (e) {
+
+            if (dragType !== "STOCK_CARD") {
+                return;
+            }
+
+            const targetGroup =
+                getTargetGroup(
+                    e.clientX,
+                    e.clientY
+                );
+
+            if (targetGroup !== -1) {
+
+                await draw(
+                    "stock",
+                    targetGroup
+                );
+            }
+
+            dragType = null;
+
+            removeGhost();
+        }
+    );
+
+    stockCard.addEventListener(
+        "pointercancel",
+        cancelMobileDrag
+    );
+
+    stockCard.addEventListener(
+        "lostpointercapture",
+        cancelMobileDrag
+    );
+}
+
+
 }
 
 
@@ -2478,7 +2670,7 @@ function closeHistoryPopup() {
 // =========================
 // DRAW
 // =========================
-async function draw(source) {
+async function draw(source, targetGroup = 5) {
 
   if (!state.sessionId) return;
   if(state.declarationMode){
@@ -2535,15 +2727,25 @@ async function draw(source) {
 
   if (card) {
 
-    // Every newly picked card (OPEN or STOCK) always goes to G6.
-    ensureSixGroups();
-    state.groups[5].push(card);
+        ensureSixGroups();
 
-    state.pickedCard = {
-        card: card,
-        group: 5,
-        index: state.groups[5].length - 1
-    };
+        // Destination:
+        // G1-G6 when dragged to a group.
+        // G6 when using normal click.
+        const destinationGroup =
+            Number.isInteger(targetGroup) &&
+            targetGroup >= 0 &&
+            targetGroup <= 5
+                ? targetGroup
+                : 5;
+
+        state.groups[destinationGroup].push(card);
+
+        state.pickedCard = {
+            card: card,
+            group: destinationGroup,
+            index: state.groups[destinationGroup].length - 1
+        };
 
     //await loadSessionInfo();
     renderHand();
