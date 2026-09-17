@@ -7,6 +7,7 @@ const SUPABASE_URL ='https://dbfycihbcosuxxkrmbhl.supabase.co';
 
 const SUPABASE_KEY ='sb_publishable_aOyXtAbzrrX0Z9jPAU1qEA_0ZnK35BX';
 
+
 const supabaseClient =
 supabase.createClient(
 SUPABASE_URL,
@@ -646,7 +647,35 @@ function enableMobileCardDrag() {
 }
 
 
+// SIX-GROUP HELPERS
 // ==========================================
+function ensureSixGroups() {
+    if (!Array.isArray(state.groups)) {
+        state.groups = [];
+    }
+
+    while (state.groups.length < 6) {
+        state.groups.push([]);
+    }
+
+    if (state.groups.length > 6) {
+        state.groups = state.groups.slice(0, 6);
+    }
+}
+
+function findAvailableGroup(startGroup = 0, endGroup = 4, excludeGroup = -1) {
+    ensureSixGroups();
+
+    for (let g = startGroup; g <= endGroup; g++) {
+        if (g === excludeGroup) continue;
+        if (!state.groups[g] || state.groups[g].length === 0) {
+            return g;
+        }
+    }
+
+    return 5;
+}
+
 // GROUP BUTTON
 // ==========================================
 
@@ -677,15 +706,13 @@ function updateGroupButton() {
 
     let targetGroup = -1;
 
-    for (let g = 0; g < 4; g++) {
-
-        if (
-            !state.groups[g] ||
-            state.groups[g].length === 0
-        ) {
-            targetGroup = g;
-            break;
-        }
+    // G5 is the user-created grouping slot.
+    // G6 is reserved for printed Jokers and overflow.
+    ensureSixGroups();
+    if (state.groups[4].length === 0) {
+        targetGroup = 4;
+    } else {
+        targetGroup = 5;
     }
 
 
@@ -823,124 +850,203 @@ function groupSelectedCards() {
         return;
     }
 
+    ensureSixGroups();
 
-    // ==========================================
-    // FIND NEXT AVAILABLE GROUP
-    // ==========================================
+    // ==========================================================
+    // GROUPING RULES
+    // ==========================================================
+    // G1-G5 = real user groups.
+    // G6     = overflow / unassigned group.
+    //
+    // A) Selected cards from ONE normal group (G1-G5):
+    //    selected cards stay in their parent group.
+    //
+    // B) Selected cards from MULTIPLE groups:
+    //    there is no parent. Selected cards are assigned to the
+    //    first available group in G1 -> G5.
+    //
+    // C) Selected cards from G6:
+    //    G6 is not a parent. Selected cards are assigned to the
+    //    first available group in G1 -> G5.
+    //
+    // D) Every remaining/unassigned card is redistributed by
+    //    checking availability in strict order G1 -> G6.
+    // ==========================================================
 
-    let targetGroup = -1;
+    const selected = [];
+    const seen = new Set();
 
-    for (let g = 0; g < 4; g++) {
+    state.selectedCards.forEach(item => {
+        const group = Number(item.group);
+        const index = Number(item.index);
 
         if (
-            !state.groups[g] ||
-            state.groups[g].length === 0
+            !Number.isInteger(group) ||
+            group < 0 ||
+            group > 5 ||
+            !Number.isInteger(index) ||
+            index < 0 ||
+            !state.groups[group] ||
+            index >= state.groups[group].length
         ) {
-            targetGroup = g;
-            break;
+            return;
         }
-    }
 
+        const key = `${group}:${index}`;
+        if (seen.has(key)) return;
 
-    // ==========================================
-    // MAXIMUM 4 GROUPS
-    // ==========================================
+        seen.add(key);
+        selected.push({
+            card: state.groups[group][index],
+            group,
+            index
+        });
+    });
 
-    if (targetGroup === -1) {
-
-        alert("Maximum 4 groups allowed");
-
+    if (selected.length < 2) {
         return;
     }
 
+    const sourceGroups = new Map();
 
-    // ==========================================
-    // COPY SELECTED CARDS
-    // ==========================================
-
-    const selectedCards =
-        [...state.selectedCards];
-
-
-    // ==========================================
-    // REMOVE SELECTED CARDS
-    // FROM THEIR ORIGINAL GROUPS
-    //
-    // IMPORTANT:
-    // Remove from highest index first
-    // so indexes do not shift.
-    // ==========================================
-
-    const groupedBySource = {};
-
-
-    selectedCards.forEach(item => {
-
-        if (!groupedBySource[item.group]) {
-
-            groupedBySource[item.group] = [];
+    selected.forEach(item => {
+        if (!sourceGroups.has(item.group)) {
+            sourceGroups.set(item.group, {
+                cards: [...state.groups[item.group]],
+                selectedIndexes: new Set()
+            });
         }
 
-        groupedBySource[item.group].push(item);
+        sourceGroups.get(item.group)
+            .selectedIndexes.add(item.index);
     });
 
+    const sourceNumbers = [...sourceGroups.keys()];
+    const hasSingleNormalParent =
+        sourceNumbers.length === 1 &&
+        sourceNumbers[0] >= 0 &&
+        sourceNumbers[0] <= 4;
 
-    Object.keys(groupedBySource).forEach(groupKey => {
+    // ==========================================================
+    // CASE A: SINGLE NORMAL PARENT G1-G5
+    // ==========================================================
+    if (hasSingleNormalParent) {
 
-        const sourceGroup =
-            Number(groupKey);
+        const parentGroup = sourceNumbers[0];
+        const source = sourceGroups.get(parentGroup);
 
-        groupedBySource[groupKey]
-            .sort((a, b) => b.index - a.index);
-
-
-        groupedBySource[groupKey]
-            .forEach(item => {
-
-                state.groups[sourceGroup]
-                    .splice(item.index, 1);
-
-            });
-
-    });
-
-
-    // ==========================================
-    // ADD ALL SELECTED CARDS TO TARGET GROUP
-    // ==========================================
-
-    selectedCards.forEach(item => {
-
-        state.groups[targetGroup]
-            .push(item.card);
-
-    });
-
-
-    // ==========================================
-    // CLEAR SELECTION
-    // ==========================================
-
-    state.selectedCards = [];
-
-
-    // Remove button
-    const button =
-        document.getElementById(
-            "groupActionButton"
+        const selectedCards = source.cards.filter(
+            (_, index) => source.selectedIndexes.has(index)
         );
+
+        const remainingCards = source.cards.filter(
+            (_, index) => !source.selectedIndexes.has(index)
+        );
+
+        // Selected cards stay with their parent.
+        state.groups[parentGroup] = selectedCards;
+
+        // Remaining cards are now invalid/unassigned.
+        // If only ONE card remains, keep it in G6 so the
+        // user does not see a one-card group.
+        // Otherwise find ONE available group in G1 -> G5,
+        // then put ALL remaining cards into that SAME group.
+        let remainingTarget = -1;
+
+        if (remainingCards.length === 1) {
+            remainingTarget = 5; // G6
+        } else {
+            for (let g = 0; g < 5; g++) {
+                if (state.groups[g].length === 0) {
+                    remainingTarget = g;
+                    break;
+                }
+            }
+
+            // If no G1-G5 group is available, use G6.
+            if (remainingTarget === -1) {
+                remainingTarget = 5;
+            }
+        }
+
+        state.groups[remainingTarget].push(...remainingCards);
+    }
+
+    // ==========================================================
+    // CASE B/C: MULTIPLE GROUPS OR SELECTION FROM G6
+    // ==========================================================
+    else {
+
+        const selectedCards = selected.map(item => item.card);
+        const remainingCards = [];
+
+        // Collect all unselected cards from the source groups.
+        sourceGroups.forEach((source, groupNo) => {
+            source.cards.forEach((card, index) => {
+                if (!source.selectedIndexes.has(index)) {
+                    remainingCards.push(card);
+                }
+            });
+        });
+
+        // Clear the source groups completely. This is important:
+        // otherwise a source group's remaining cards would prevent
+        // the G1 -> G5 availability search from finding a free group.
+        sourceGroups.forEach((source, groupNo) => {
+            state.groups[groupNo] = [];
+        });
+
+        // --------------------------------------------------------
+        // FIRST assign the SELECTED cards.
+        // No parent exists here, so ALWAYS check G1 -> G5.
+        // --------------------------------------------------------
+        let selectedTarget = -1;
+
+        for (let g = 0; g < 5; g++) {
+            if (state.groups[g].length === 0) {
+                selectedTarget = g;
+                break;
+            }
+        }
+
+        // If all G1-G5 are occupied, G6 is the only safe place.
+        if (selectedTarget === -1) {
+            selectedTarget = 5;
+        }
+
+        state.groups[selectedTarget].push(...selectedCards);
+
+        // --------------------------------------------------------
+        // THEN redistribute the remaining cards.
+        // IMPORTANT: check availability ONCE, then keep ALL
+        // remaining cards together in that SAME group.
+        // --------------------------------------------------------
+        let remainingTarget = -1;
+
+        for (let g = 0; g < 6; g++) {
+            if (state.groups[g].length === 0) {
+                remainingTarget = g;
+                break;
+            }
+        }
+
+        if (remainingTarget === -1) {
+            remainingTarget = 5;
+        }
+
+        state.groups[remainingTarget].push(...remainingCards);
+    }
+
+    clearCardSelection();
+
+    const button =
+        document.getElementById("groupActionButton");
 
     if (button) {
         button.remove();
     }
 
-
-    // ==========================================
-    // REDRAW
-    // ==========================================
-
     renderHand();
-
     calculateDealScore();
 }
 
@@ -985,7 +1091,7 @@ function renderHand() {
 
     
 
-    for(let g = 0; g < 5; g++) {
+    for(let g = 0; g < 6; g++) {
 
     const groupEl =
         document.getElementById("group" + g);
@@ -995,49 +1101,21 @@ function renderHand() {
     }
 
 
+        // ==========================================
+    // G1-G6
+    // All groups use the exact same visual/card layout.
+    // Empty groups remain hidden.
     // ==========================================
-    // G1-G4
-    // Show only when cards exist
-    // ==========================================
 
-    if(g < 4) {
-
-        if(state.groups[g].length === 0) {
-
-            groupEl.style.display = "none";
-
-        }
-        else {
-
-            groupEl.style.display = "flex";
-
-            groupEl.innerHTML =
-                `<div class="group-title">
-                    G${g + 1}
-                 </div>`;
-        }
+    if(state.groups[g].length === 0) {
+        groupEl.style.display = "none";
     }
-
-
-    // ==========================================
-    // G5 = UNGROUPED BUCKET
-    //
-    // Never call it G5
-    // Always visible when it has cards
-    // ==========================================
-
     else {
-
-        groupEl.style.display =
-            state.groups[g].length > 0
-                ? "flex"
-                : "none";
-
+        groupEl.style.display = "flex";
         groupEl.innerHTML =
-            `<div class="group-title">
-                UNGROUPED
-             </div>`;
+            `<div class="group-title">G${g + 1}</div>`;
     }
+
 
         // DROP ON EMPTY GROUP / GROUP AREA
 
@@ -1315,38 +1393,7 @@ function renderHand() {
 
 
 
-            // G5 / UNGROUPED: add visual spacing between suits
-// Order is Hearts -> Spades -> Diamonds -> Clubs -> Jokers.
-// Deal jokers stay with their actual suit.
-// Only suit-to-suit changes get spacing.
-
-if (g === 4 && index > 0) {
-
-    const previousCard = state.groups[g][index - 1];
-
-    // Get the actual suit from each card.
-    // This works for normal cards AND deal jokers.
-    const currentSuitMatch = card.match(/[♠♥♦♣]/);
-    const previousSuitMatch = previousCard.match(/[♠♥♦♣]/);
-
-    const currentSuit = currentSuitMatch
-        ? currentSuitMatch[0]
-        : null;
-
-    const previousSuit = previousSuitMatch
-        ? previousSuitMatch[0]
-        : null;
-
-    // Add space only when changing from
-    // one real suit to another.
-    if (
-        currentSuit &&
-        previousSuit &&
-        currentSuit !== previousSuit
-    ) {
-        div.style.marginLeft = "15px";
-    }
-}
+            // All G1-G6 use identical card spacing.
 
 groupEl.appendChild(div);
 
@@ -1372,7 +1419,7 @@ groupEl.appendChild(div);
 
 function hideBaseTableHand() {
 
-    for (let g = 0; g < 5; g++) {
+    for (let g = 0; g < 6; g++) {
 
         const groupEl =
             document.getElementById(
@@ -1388,7 +1435,7 @@ function hideBaseTableHand() {
 
 function showBaseTableHand() {
 
-    for (let g = 0; g < 5; g++) {
+    for (let g = 0; g < 6; g++) {
 
         const groupEl =
             document.getElementById(
@@ -2364,12 +2411,14 @@ async function draw(source) {
 
   if (card) {
 
-    state.groups[4].push(card);
+    ensureSixGroups();
+
+    state.groups[5].push(card);
 
     state.pickedCard = {
         card: card,
-        group: 4,
-        index: state.groups[4].length - 1
+        group: 5,
+        index: state.groups[5].length - 1
     };
 
     //await loadSessionInfo();
@@ -3794,7 +3843,7 @@ function getTotalCards(){
 
     let total = 0;
 
-    for(let g = 0; g < 5; g++){
+    for(let g = 0; g < 6; g++){
 
         if(state.groups[g]){
 
@@ -4051,29 +4100,23 @@ async function loadGame() {
 
 
         // ------------------------------------------
-        // All cards initially go into G5
-        //
-        // G1-G4 = empty user groups
-        // G5    = ungrouped bucket
-        //
-        // Order:
-        // ♥ → ♠ → ♦ → ♣ → JOKER
+        // Initial six-group layout
+        // G1 = Hearts
+        // G2 = Spades
+        // G3 = Diamonds
+        // G4 = Clubs
+        // G5 = empty user-created group
+        // G6 = printed Jokers / overflow
+        // Deal jokers stay with their actual suit.
         // ------------------------------------------
 
-        const ungroupedCards = [
-            ...hearts,
-            ...spades,
-            ...diamonds,
-            ...clubs,
-            ...jokers
-        ];
-
         state.groups = [
-            [],              // G1
-            [],              // G2
-            [],              // G3
-            [],              // G4
-            ungroupedCards   // G5 = ungrouped
+            hearts,        // G1
+            spades,        // G2
+            diamonds,      // G3
+            clubs,         // G4
+            [],            // G5
+            jokers         // G6
         ];
 
 

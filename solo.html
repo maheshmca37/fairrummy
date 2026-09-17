@@ -10,6 +10,20 @@
   <title>CRDG Rummy</title>
   <link rel="stylesheet" href="solo.css">
   <link rel="stylesheet" href="history.css">
+
+  <style id="rummy-six-group-layout">
+    /* G1-G6 must have identical card layout. */
+    #my-hand .group-box {
+      display: inline-flex;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      gap: 4px;
+      overflow: visible;
+    }
+    #my-hand .group-box .card + .card {
+      margin-left: -37px;
+    }
+  </style>
 </head>
 <body>
 
@@ -211,6 +225,7 @@
           <div class="group-box" id="group2"></div>
           <div class="group-box" id="group3"></div>
           <div class="group-box" id="group4"></div>
+          <div class="group-box" id="group5"></div>
         </section>
       </main>
 
@@ -228,6 +243,7 @@
         <div class="group" data-group="2"><h4>Group 3</h4></div>
         <div class="group" data-group="3"><h4>Group 4</h4></div>
         <div class="group" data-group="4"><h4>Group 5</h4></div>
+        <div class="group" data-group="5"><h4>Group 6</h4></div>
       </div>
     </div>
   </section>
