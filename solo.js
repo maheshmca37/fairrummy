@@ -1056,6 +1056,27 @@ function groupSelectedCards() {
         state.groups[remainingTarget].push(...remainingCards);
     }
 
+            // ==========================================
+        // CLEAN SINGLE-CARD GROUPS
+        // ==========================================
+        // Any G1-G5 containing exactly ONE card
+        // is moved to G6.
+        // G6 is the overflow / unassigned group.
+
+        for (let g = 0; g < 5; g++) {
+
+            if (
+                state.groups[g] &&
+                state.groups[g].length === 1
+            ) {
+
+                const singleCard =
+                    state.groups[g].shift();
+
+                state.groups[5].push(singleCard);
+            }
+        }
+
     clearCardSelection();
 
     const button =
