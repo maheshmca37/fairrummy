@@ -7,7 +7,6 @@ const SUPABASE_URL ='https://dbfycihbcosuxxkrmbhl.supabase.co';
 
 const SUPABASE_KEY ='sb_publishable_aOyXtAbzrrX0Z9jPAU1qEA_0ZnK35BX';
 
-
 const supabaseClient =
 supabase.createClient(
 SUPABASE_URL,
@@ -503,10 +502,10 @@ function enableMobileCardDrag() {
         ) {
 
             state.selectedCards = [{
-                card: dragCardData.card,
-                group: dragCardData.group,
-                index: dragCardData.index
-            }];
+        card: dragCardData.card,
+        group: dragCardData.group,
+        index: dragCardData.index
+    }];
 
             await discard();
 
@@ -598,7 +597,7 @@ function enableMobileCardDrag() {
                 movedCard
             );
 
-        state.selectedCards = [];
+        clearCardSelection();
 
         renderHand();
         calculateDealScore();
@@ -627,7 +626,7 @@ function enableMobileCardDrag() {
                             cardToMove
                         );
 
-                    state.selectedCards = [];
+                    clearCardSelection();
 
                     renderHand();
                     calculateDealScore();
@@ -1314,7 +1313,42 @@ function renderHand() {
                 calculateDealScore();
             };
 
-            groupEl.appendChild(div);
+
+
+            // G5 / UNGROUPED: add visual spacing between suits
+// Order is Hearts -> Spades -> Diamonds -> Clubs -> Jokers.
+// Deal jokers stay with their actual suit.
+// Only suit-to-suit changes get spacing.
+
+if (g === 4 && index > 0) {
+
+    const previousCard = state.groups[g][index - 1];
+
+    // Get the actual suit from each card.
+    // This works for normal cards AND deal jokers.
+    const currentSuitMatch = card.match(/[♠♥♦♣]/);
+    const previousSuitMatch = previousCard.match(/[♠♥♦♣]/);
+
+    const currentSuit = currentSuitMatch
+        ? currentSuitMatch[0]
+        : null;
+
+    const previousSuit = previousSuitMatch
+        ? previousSuitMatch[0]
+        : null;
+
+    // Add space only when changing from
+    // one real suit to another.
+    if (
+        currentSuit &&
+        previousSuit &&
+        currentSuit !== previousSuit
+    ) {
+        div.style.marginLeft = "22px";
+    }
+}
+
+groupEl.appendChild(div);
 
             setTimeout(() => {
 
@@ -2400,17 +2434,32 @@ async function dropCurrentDeal()
 
     renderHand();
 }
+
+// ==========================================================
+// SINGLE-CARD ACTION SELECTION
+// Multi-select remains in state.selectedCards.
+// Discard / Declare use this helper and require exactly 1.
+// ==========================================================
+function getSingleSelectedCard() {
+    if (!Array.isArray(state.selectedCards)) {
+        return null;
+    }
+
+    if (state.selectedCards.length !== 1) {
+        return null;
+    }
+
+    return state.selectedCards[0];
+}
+
+function clearCardSelection() {
+    state.selectedCards = [];
+    state.selectedCard = null;
+}
+
 // =========================
 // DISCARD
 // =========================
-function getSingleSelectedCard(actionName = "action") {
-    const selected = state.selectedCards || [];
-    if (selected.length === 1) return selected[0];
-    if (selected.length > 1) alert(`Please select only one card for ${actionName}.`);
-    else alert(`Please select one card for ${actionName}.`);
-    return null;
-}
-
 async function discard() {
      
 
@@ -2436,8 +2485,16 @@ async function discard() {
         return;
     }
 
-    const cardToRemove = getSingleSelectedCard("discard");
-    if (!cardToRemove) return;
+    const singleSelectedCard = getSingleSelectedCard();
+
+    if (!singleSelectedCard) {
+        if (state.selectedCards && state.selectedCards.length > 1) {
+            alert("Please select only one card to discard.");
+        } else {
+            alert("Please select a card to discard.");
+        }
+        return;
+    }
 
     // existing discard code...
 
@@ -2450,6 +2507,17 @@ async function discard() {
     if (totalCards < 14) {
 
         alert("Pick a card first");
+        return;
+    }
+
+    const cardToRemove = getSingleSelectedCard();
+
+    if (!cardToRemove) {
+        if (state.selectedCards && state.selectedCards.length > 1) {
+            alert("Please select only one card to discard.");
+        } else {
+            alert("Please select a card to discard.");
+        }
         return;
     }
 
@@ -2483,7 +2551,7 @@ async function discard() {
             1
         );
 
-        state.selectedCards = [];
+        clearCardSelection();
 
             // Stop the completed turn timer immediately
         clearInterval(state.turnTimerInterval);
@@ -2494,7 +2562,7 @@ async function discard() {
         ).innerText = "0";
 
         // Clear old card selection
-        state.selectedCards = [];
+        clearCardSelection();
         state.dragCard = null;
 
         // Load the new turn and its new central timer
@@ -4016,7 +4084,7 @@ async function loadGame() {
   //document.getElementById("stockCard").innerText = data.stock_pile?.length || 0;
 
     // Clear selection belonging to the old hand
-state.selectedCards = [];
+clearCardSelection();
 state.dragCard = null;
 
 // Display the refreshed database hand
@@ -5282,8 +5350,18 @@ async function declareGame() {
         return;
     }
 
-    const selectedCard = getSingleSelectedCard("declaration");
-    if (!selectedCard) return;
+    const singleSelectedCard = getSingleSelectedCard();
+
+    if (!singleSelectedCard) {
+        if (state.selectedCards && state.selectedCards.length > 1) {
+            alert("Please select only one card before declaration.");
+        } else {
+            alert("Please select one card before declaration.");
+        }
+        return;
+    }
+
+    // existing declaration code...
 
 
 
@@ -5303,11 +5381,24 @@ async function declareGame() {
         return;
     }
 
+    const declareSelection = getSingleSelectedCard();
+
+    if(!declareSelection){
+
+        if (state.selectedCards && state.selectedCards.length > 1) {
+            alert("Please select only one card before declaration.");
+        } else {
+            alert("Please select one card before declaration");
+        }
+
+        return;
+    }
+
     if(!confirm( "Confirm Declaration?" )){
         return;
     }
 
-    const declareCard =  selectedCard.card;
+    const declareCard = singleSelectedCard.card;
 
     // Create copy of groups
 
@@ -5319,9 +5410,9 @@ async function declareGame() {
       // Remove selected card
 
       groupsForDeclaration[
-          selectedCard.group
+          declareSelection.group
       ].splice(
-          selectedCard.index,
+          declareSelection.index,
           1
       );
 
@@ -5354,7 +5445,7 @@ async function declareGame() {
           );
 
 
-            const declareCard = selectedCard.card;
+            const declareCard = singleSelectedCard.card;
 
             const { data, error } =
                 await supabaseClient.rpc(
@@ -5374,13 +5465,13 @@ async function declareGame() {
             // NOW remove from actual UI
 
             state.groups[
-                selectedCard.group
+                declareSelection.group
             ].splice(
-                selectedCard.index,
+                declareSelection.index,
                 1
             );
 
-            state.selectedCards = [];
+            clearCardSelection();
 
             renderHand();
 
@@ -5404,7 +5495,7 @@ async function declareGame() {
         state.isInvalidDeclaration = true;
         state.isDropped = true;
         state.dropType = "INVALID_DECLARE";
-        const declareCard = selectedCard.card;
+        const declareCard = singleSelectedCard.card;
 
         const { data, error } =
             await supabaseClient.rpc(
