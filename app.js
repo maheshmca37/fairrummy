@@ -621,7 +621,7 @@ function enableMobileCardDrag() {
 
         if (!handled) {
 
-            for (let targetGroup = 0; targetGroup < 5; targetGroup++) {
+            for (let targetGroup = 0; targetGroup < 6; targetGroup++) {
 
                 const groupEl =
                     document.getElementById(
