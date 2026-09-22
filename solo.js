@@ -76,6 +76,11 @@ let state = {
   participatedInDeal : false
 };
 
+
+
+const pickupSound = new Audio("pickup.mp3");
+const discardSound = new Audio("discard.mp3");
+
 let savedUserId =
   localStorage.getItem("crdg_user_id");
 
@@ -1931,10 +1936,6 @@ async function onObservationTimerExpired()
 
     if (data.game_completed === true) {
 
-        console.log(
-            "FINAL OBSERVATION COMPLETE - SHOW TABLE COMPLETION"
-        );
-
         handleTableCompleted(data);
 
         return;
@@ -2727,6 +2728,9 @@ async function draw(source, targetGroup = 5) {
 
   if (card) {
 
+        pickupSound.currentTime = 0;
+        pickupSound.play().catch(() => {});
+
         ensureSixGroups();
 
         // Destination:
@@ -2886,7 +2890,12 @@ async function discard() {
         data &&
         data.length &&
         data[0].status === "success"
-    ) {
+    ) 
+    {
+
+
+            discardSound.currentTime = 0;
+            discardSound.play().catch(() => {});
 
         state.groups[
             cardToRemove.group
@@ -2895,13 +2904,7 @@ async function discard() {
             1
         );
 
-        state.selectedCards = [];
-        state.selectedCard = null;
-
-            // Stop the completed turn timer immediately
-        clearInterval(state.turnTimerInterval);
-        state.turnTimerInterval = null;
-
+          
         document.getElementById(
             "turnTimer"
         ).innerText = "0";
@@ -2913,12 +2916,21 @@ async function discard() {
 
         // Load the new turn and its new central timer
        // await loadGame();
-        await loadSessionInfo();
+            // New turn is already returned by discard RPC
+        state.currentTurnSeat = Number(data[0].next_turn_seat);
+        state.turnEndAt = data[0].turn_end_at;
+
+        // Start the new turn timer immediately
+        clearInterval(state.turnTimerInterval);
+        state.turnTimerInterval = null;
+
+       // syncTurnClock();
+        startTurnTimer();
 
         updateActionButtons();
 
         renderHand();
-        calculateDealScore();
+        calculateDealScore();        
 
        // await loadSessionInfo();
     }
@@ -2930,6 +2942,9 @@ async function discard() {
 
 let sessionRefreshPending = false;
 let sessionRefreshTimer = null;
+let sessionRealtimeChannel = null;
+
+
 
 function subscribeRealtime() {
 
@@ -2937,107 +2952,143 @@ function subscribeRealtime() {
         return;
     }
 
-    supabaseClient
-        .channel(
-            "game-session-" +
-            state.sessionId +
-            "-" +
-            state.userId
-        )
-        .on(
-            "postgres_changes",
-            {
-                event: "*",
-                schema: "public",
-                table: "crdg_game_sessions",
-                filter:
-                    "session_id=eq." +
-                    state.sessionId
-            },
-            () => {
+    // Prevent duplicate realtime subscriptions
+    if (sessionRealtimeChannel) {
+        return;
+    }
 
-                // ------------------------------------------
-                // Do NOT discard events.
-                //
-                // Every new event resets this timer.
-                // We refresh only after the burst finishes.
-                // ------------------------------------------
+    sessionRealtimeChannel =
+        supabaseClient
+            .channel(
+                "game-session-" +
+                state.sessionId +
+                "-" +
+                state.userId
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "crdg_game_sessions",
+                    filter:
+                        "session_id=eq." +
+                        state.sessionId
+                },
+                (payload) => {
 
-                if (sessionRefreshTimer) {
-                    clearTimeout(
-                        sessionRefreshTimer
-                    );
-                }
 
-                sessionRefreshTimer =
-                    setTimeout(
-                        async () => {
+                    // ------------------------------------------
+                    // Do NOT discard realtime events.
+                    // Every event resets the debounce timer.
+                    // ------------------------------------------
 
-                            // If another refresh is still running,
-                            // try again shortly instead of losing event.
-                            if (sessionRefreshPending) {
+                    if (sessionRefreshTimer) {
+
+                        clearTimeout(
+                            sessionRefreshTimer
+                        );
+
+                    }
+
+
+                    sessionRefreshTimer =
+                        setTimeout(
+                            async () => {
+
+                                // ------------------------------------------
+                                // If another refresh is still running,
+                                // try again shortly.
+                                // ------------------------------------------
+
+                                if (sessionRefreshPending) {
+
+                                    sessionRefreshTimer =
+                                        setTimeout(
+                                            () => {
+
+                                                sessionRefreshTimer =
+                                                    null;
+
+                                                loadSessionInfo()
+                                                    .then(
+                                                        () => {
+
+                                                            updateActionButtons();
+
+                                                        }
+                                                    )
+                                                    .catch(
+                                                        error => {
+
+                                                            console.error(
+                                                                "Realtime delayed refresh error:",
+                                                                error
+                                                            );
+
+                                                        }
+                                                    );
+
+                                            },
+                                            200
+                                        );
+
+                                    return;
+                                }
+
+
+                                sessionRefreshPending =
+                                    true;
 
                                 sessionRefreshTimer =
-                                    setTimeout(
-                                        () => {
-                                            sessionRefreshTimer = null;
+                                    null;
 
-                                            // trigger fresh DB read
-                                            loadSessionInfo()
-                                                .then(() => {
-                                                    updateActionButtons();
-                                                })
-                                                .catch(error => {
-                                                    console.error(
-                                                        "Realtime delayed refresh error:",
-                                                        error
-                                                    );
-                                                });
-                                        },
-                                        200
+
+                                try {
+
+                                    await loadSessionInfo();
+
+                                    updateActionButtons();
+
+                                }
+                                catch (error) {
+
+                                    console.error(
+                                        "Realtime session refresh error:",
+                                        error
                                     );
 
-                                return;
-                            }
+                                }
+                                finally {
 
-                            sessionRefreshPending = true;
-                            sessionRefreshTimer = null;
+                                    sessionRefreshPending =
+                                        false;
 
-                            try {
+                                }
 
-                                await loadSessionInfo();
+                            },
+                            350
+                        );
 
-                                updateActionButtons();
+                }
+            )
+            .subscribe(
+                (status, err) => {
 
-                            }
-                            catch (error) {
+                    if (err) {
 
-                                console.error(
-                                    "Realtime session refresh error:",
-                                    error
-                                );
+                        console.error(
+                            "Session realtime error:",
+                            err
+                        );
 
-                            }
-                            finally {
+                    }
 
-                                sessionRefreshPending = false;
-                            }
-
-                        },
-                        350
-                    );
-            }
-        )
-        .subscribe((status, err) => {
-
-            if (err) {
-                console.error(
-                    "Session realtime error:",
-                    err
-                );
-            }
-        });
+                }
+            );
 }
+
+
 
 async function handleTableCompleted(data)
 {
@@ -3468,6 +3519,7 @@ async function loadSessionInfo() {
             updateActionButtons();
         }
 
+
     // Refresh my dynamic seat after rejoin/rebuild
     const { data: players, error: playersError } =
         await supabaseClient.rpc(
@@ -3476,6 +3528,8 @@ async function loadSessionInfo() {
                 p_table_id: state.tableId
             }
         );
+
+  
 
     if (playersError) {
         console.error(playersError);
@@ -3492,7 +3546,7 @@ async function loadSessionInfo() {
         state.seatNo = Number(me.seat_no);
     }
 
-    await loadPlayers();
+    await loadPlayers(players);
 
 
   state.turnStartedAt =    new Date(
@@ -3611,7 +3665,9 @@ async function loadSessionInfo() {
             state.lastTurnSeat =
                 data.current_turn_seat;
 
-            await syncTurnClock();
+
+       await syncTurnClock();
+
 
             startTurnTimer();
         }
@@ -4943,22 +4999,30 @@ async function processTurnTimeout() {
     }
 }
 
-async function loadPlayers() {
-    let dlr_name = "YOU";
-    const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_get_lobby_players",
-            {
-                p_table_id: state.tableId
-            }
-        );
+async function loadPlayers(playersData = null) {
 
-    if (error) {
-        console.error(error);
-        return;
+    let dlr_name = "YOU";
+
+    let players = playersData;
+
+    if (!players) {
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_get_lobby_players",
+                {
+                    p_table_id: state.tableId
+                }
+            );
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        players = data;
     }
 
-    if (!data) return;
+    if (!players) return;
 
     for (let i = 1; i <= 5; i++) {
 
@@ -4971,7 +5035,7 @@ async function loadPlayers() {
 
     state.myScore = 0;
 
-    data.forEach(player => {
+    players.forEach(player => {
 
         if (
             Number(player.fixed_seat_no) === Number(state.fixedSeatNo)
@@ -5135,7 +5199,7 @@ async function loadPlayers() {
 
             
     const turnPlayer =
-        data.find(
+        players.find(
             p =>
                 Number(p.seat_no) ===
                 Number(state.currentTurnSeat)

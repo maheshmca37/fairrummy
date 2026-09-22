@@ -75,6 +75,11 @@ let state = {
   participatedInDeal : false
 };
 
+
+
+const pickupSound = new Audio("pickup.mp3");
+const discardSound = new Audio("discard.mp3");
+
 let savedUserId =
   localStorage.getItem("crdg_user_id");
 
@@ -1827,10 +1832,6 @@ async function onObservationTimerExpired()
 
     if (data.game_completed === true) {
 
-        console.log(
-            "FINAL OBSERVATION COMPLETE - SHOW TABLE COMPLETION"
-        );
-
         handleTableCompleted(data);
 
         return;
@@ -2623,6 +2624,9 @@ async function draw(source, targetGroup = 5) {
 
   if (card) {
 
+        pickupSound.currentTime = 0;
+        pickupSound.play().catch(() => {});
+
             ensureSixGroups();
 
         // Destination:
@@ -2792,6 +2796,7 @@ async function discard() {
         return;
     }
 
+
     const { data, error } =
         await supabaseClient.rpc(
             "crdg_discard_card",
@@ -2813,7 +2818,11 @@ async function discard() {
         data &&
         data.length &&
         data[0].status === "success"
-    ) {
+    ) 
+    {
+
+        discardSound.currentTime = 0;
+        discardSound.play().catch(() => {});
 
         state.groups[
             cardToRemove.group
@@ -2822,7 +2831,6 @@ async function discard() {
             1
         );
 
-        clearCardSelection();
 
             // Stop the completed turn timer immediately
         clearInterval(state.turnTimerInterval);
@@ -2836,9 +2844,22 @@ async function discard() {
         clearCardSelection();
         state.dragCard = null;
 
-        // Load the new turn and its new central timer
-       // await loadGame();
-        await loadSessionInfo();
+
+        // New turn is already returned by discard RPC
+        state.currentTurnSeat =
+            Number(data[0].next_turn_seat);
+
+        state.turnEndAt =
+            data[0].turn_end_at;
+
+        // Start the new turn timer immediately
+        clearInterval(
+            state.turnTimerInterval
+        );
+
+        state.turnTimerInterval = null;
+
+        startTurnTimer();
 
         updateActionButtons();
 
@@ -3417,7 +3438,7 @@ async function loadSessionInfo() {
         state.seatNo = Number(me.seat_no);
     }
 
-    await loadPlayers();
+    await loadPlayers(players);
 
 
   state.turnStartedAt =    new Date(
@@ -4933,19 +4954,28 @@ async function processTurnTimeout() {
     }
 }
 
-async function loadPlayers() {
-    let dlr_name = "YOU";
-    const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_get_lobby_players",
-            {
-                p_table_id: state.tableId
-            }
-        );
+async function loadPlayers(playersData = null) {
 
-    if (error) {
-        console.error(error);
-        return;
+    let dlr_name = "YOU";
+
+    let data = playersData;
+
+    if (!data) {
+
+        const { data: rpcData, error } =
+            await supabaseClient.rpc(
+                "crdg_get_lobby_players",
+                {
+                    p_table_id: state.tableId
+                }
+            );
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+        data = rpcData;
     }
 
     if (!data) return;
