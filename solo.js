@@ -78,6 +78,7 @@ let state = {
 
 
 
+
 const pickupSound = new Audio("pickup.mp3");
 const discardSound = new Audio("discard.mp3");
 
@@ -103,6 +104,54 @@ let observationTimeRemaining = 30;
 
 const GAME_TYPE = "SOLO";
 
+// ==========================================
+// PREVENT ACCIDENTAL BACK DURING SOLO GAME
+// ==========================================
+
+let backNavigationArmed = false;
+
+function enableBackProtection() {
+
+    if (backNavigationArmed) {
+        return;
+    }
+
+    backNavigationArmed = true;
+
+    history.pushState(
+        { soloGame: true },
+        "",
+        window.location.href
+    );
+
+    window.addEventListener(
+        "popstate",
+        function () {
+
+            const leaveGame =
+                confirm(
+                    "ARE YOU SURE TO LEAVE THIS TABLE?\n\n" +
+                    "Press OK to LEAVE\n" +
+                    "Press Cancel to PLAY"
+                );
+
+            if (leaveGame) {
+
+                history.back();
+
+            } else {
+
+                history.pushState(
+                    { soloGame: true },
+                    "",
+                    window.location.href
+                );
+            }
+        }
+    );
+}
+
+enableBackProtection();
 
 document.getElementById( "openVisual").onclick = () => {
   draw("open");

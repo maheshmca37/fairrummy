@@ -100,6 +100,60 @@ let turnTimerHandle = null;
 let observationTimeRemaining = 30;
 
 
+const GAME_TYPE = "FRIENDS";
+
+// ==========================================
+// PREVENT ACCIDENTAL BACK DURING FRIENDS GAME
+// ==========================================
+
+let backNavigationArmed = false;
+
+function enableBackProtection() {
+
+    if (backNavigationArmed) {
+        return;
+    }
+
+    backNavigationArmed = true;
+
+    history.pushState(
+        { friendsGame: true },
+        "",
+        window.location.href
+    );
+
+    window.addEventListener(
+        "popstate",
+        function () {
+
+            const leaveGame =
+                confirm(
+                    "You are currently playing this table.\n\n" +
+                    "Press OK to leave the table.\n" +
+                    "Press Cancel to continue playing."
+                );
+
+            if (leaveGame) {
+
+                // Allow Back navigation.
+                history.back();
+
+            } else {
+
+                // Stay on the game page.
+                history.pushState(
+                    { friendsGame: true },
+                    "",
+                    window.location.href
+                );
+            }
+        }
+    );
+}
+
+enableBackProtection();
+
+
 document.getElementById( "openVisual").onclick = () => {
   draw("open");
 };
