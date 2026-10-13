@@ -1,9 +1,41 @@
 // =========================
 // SUPABASE INIT
 // =========================
+
+
 const SUPABASE_URL ='https://dbfycihbcosuxxkrmbhl.supabase.co';
 
 const SUPABASE_KEY ='sb_publishable_aOyXtAbzrrX0Z9jPAU1qEA_0ZnK35BX';
+
+
+
+// =====================================================
+// TABLE GAME TYPE
+// =====================================================
+
+const TABLE_GAME_TYPE =
+    new URLSearchParams(window.location.search)
+        .get("game_type")
+        ?.toUpperCase() || "FRIENDS";
+
+const IS_POINTS =
+    TABLE_GAME_TYPE === "POINTS";
+
+
+function isPointsTablePage() {
+
+    return TABLE_GAME_TYPE === "POINTS";
+}
+
+// =====================================================
+// SAVE TABLE GAME TYPE
+// =====================================================
+
+localStorage.setItem(
+    "crdg_game_type",
+    TABLE_GAME_TYPE
+);
+
 
 const supabaseClient =
 supabase.createClient(
@@ -32,6 +64,198 @@ if (!savedUserId) {
 
 
 
+
+// =====================================================
+// LOGGED-IN ACCOUNT PROFILE
+// =====================================================
+
+let loggedInProfile = null;
+
+async function loadLoggedInProfile() {
+
+    const sessionToken =
+        localStorage.getItem("crdgn_session_token");
+
+    const hostName =
+        document.getElementById("hostName");
+
+    const hostPhone =
+        document.getElementById("hostPhone");
+
+    const joinPlayerName =
+        document.getElementById("joinPlayerName");
+
+    if (!sessionToken) {
+
+        console.error("No registered account session found.");
+
+        if (hostName) hostName.value = "LOGIN REQUIRED";
+        if (hostPhone) hostPhone.value = "LOGIN REQUIRED";
+        if (joinPlayerName) joinPlayerName.value = "LOGIN REQUIRED";
+
+        return false;
+    }
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdgn_get_profile",
+            {
+                p_session_token: sessionToken
+            }
+        );
+
+    const profile =
+        Array.isArray(data) ? data[0] : data;
+
+    if (
+        error ||
+        !profile ||
+        !profile.user_id ||
+        !profile.name ||
+        !profile.phone_no
+    ) {
+
+        console.error(
+            "Unable to load registered account profile:",
+            error || profile
+        );
+
+        if (hostName) hostName.value = "LOGIN REQUIRED";
+        if (hostPhone) hostPhone.value = "LOGIN REQUIRED";
+        if (joinPlayerName) joinPlayerName.value = "LOGIN REQUIRED";
+
+        return false;
+    }
+
+    loggedInProfile = profile;
+
+    const displayName =
+        String(profile.name).trim().toUpperCase();
+
+    const phone =
+        String(profile.phone_no).trim();
+
+    if (hostName) hostName.value = displayName;
+    if (hostPhone) hostPhone.value = phone;
+    if (joinPlayerName) joinPlayerName.value = displayName;
+
+    
+
+    return true;
+}
+
+
+// Load the registered account as soon as the page opens.
+document.addEventListener("DOMContentLoaded", async function () {
+
+    initializeTablePageMode();
+
+    await loadLoggedInProfile();
+});
+
+
+
+// =====================================================
+// GET REGISTERED ACCOUNT -> FRIENDS GAME USER ID
+// =====================================================
+
+// =====================================================
+// GET REGISTERED ACCOUNT → GAME USER ID
+// =====================================================
+
+async function getFriendsGameUserId() {
+
+    const sessionToken =
+        localStorage.getItem("crdgn_session_token");
+
+    if (!sessionToken) {
+
+        showMessage(
+            "Please login before continuing.",
+            true
+        );
+
+        return null;
+    }
+
+
+    const gameType =
+        TABLE_GAME_TYPE;
+
+
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdgn_get_or_create_game_user_id",
+            {
+                p_session_token: sessionToken,
+                p_game_type: gameType
+            }
+        );
+
+
+    if (error) {
+
+        console.error(
+            "Game account mapping error:",
+            error
+        );
+
+        showMessage(
+            "Unable to connect your game account.",
+            true
+        );
+
+        return null;
+    }
+
+
+    const result =
+        Array.isArray(data)
+            ? data[0]
+            : data;
+
+
+    if (
+        !result ||
+        result.success !== true ||
+        !result.game_user_id
+    ) {
+
+        console.error(
+            "Invalid game mapping:",
+            result
+        );
+
+        showMessage(
+            result?.message ||
+            "Game account mapping failed.",
+            true
+        );
+
+        return null;
+    }
+
+
+    console.log(
+        "GAME ACCOUNT MAPPING:",
+        {
+            requested_game_type:
+                gameType,
+
+            registered_user_id:
+                result.user_id,
+
+            game_user_id:
+                result.game_user_id,
+
+            returned_game_type:
+                result.game_type
+        }
+    );
+
+
+    return result.game_user_id;
+}
 
 // =====================================================
 // SHOW CREATE TABLE
@@ -121,21 +345,104 @@ function showMessage(text, isError = false) {
 
 
 // =====================================================
+// INITIALIZE TABLE PAGE MODE
+// =====================================================
+
+function initializeTablePageMode() {
+
+    if (!IS_POINTS) {
+        return;
+    }
+
+    document.title = "Play With Points";
+
+    const pageTitle =
+        document.getElementById("pageTitle");
+
+    const createOptionButton =
+        document.getElementById("createOptionButton");
+
+    const joinOptionButton =
+        document.getElementById("joinOptionButton");
+
+    const createHeading =
+        document.getElementById("createHeading");
+
+    const joinHeading =
+        document.getElementById("joinHeading");
+
+    const createButtonText =
+        document.getElementById("createButtonText");
+
+    const friendsPoolOptions =
+        document.getElementById("friendsPoolOptions");
+
+    const pointsMultiplierOptions =
+        document.getElementById("pointsMultiplierOptions");
+
+
+    if (pageTitle)
+        pageTitle.innerText = "PLAY WITH POINTS";
+
+    if (createOptionButton)
+        createOptionButton.innerText =
+            "CREATE POINTS TABLE";
+
+    if (joinOptionButton)
+        joinOptionButton.innerText =
+            "JOIN POINTS TABLE";
+
+    if (createHeading)
+        createHeading.innerText =
+            "CREATE POINTS TABLE";
+
+    if (joinHeading)
+        joinHeading.innerText =
+            "JOIN POINTS TABLE";
+
+    if (createButtonText)
+        createButtonText.innerText =
+            "CREATE POINTS TABLE";
+
+    if (friendsPoolOptions)
+        friendsPoolOptions.style.display = "none";
+
+    if (pointsMultiplierOptions)
+        pointsMultiplierOptions.style.display = "block";
+}
+
+// =====================================================
 // CREATE NEW TABLE
 // =====================================================
 
 async function createTable() {
 
+
+        if (isPointsTablePage()) {
+
+         await createPointsTable();
+
+           return;
+        }
+
+    if (!loggedInProfile) {
+
+        const loaded =
+            await loadLoggedInProfile();
+
+        if (!loaded) {
+            showMessage("Please login to create a Friends table", true);
+            return;
+        }
+    }
+
     const playerName =
-        document
-            .getElementById("hostName")
-            .value
-            .trim();
+        String(loggedInProfile.name)
+            .trim()
+            .toUpperCase();
 
     const phone =
-        document
-            .getElementById("hostPhone")
-            .value
+        String(loggedInProfile.phone_no)
             .trim();
 
     const poolType =
@@ -177,7 +484,81 @@ async function createTable() {
     );
 
 
+    const friendsGameUserId =
+            await getFriendsGameUserId();
+
+        if (!friendsGameUserId) {
+            return;
+        }
+
     try {
+
+
+                // -----------------------------------------
+        // Prepare FRIENDS game player identity
+        // -----------------------------------------
+
+        const sessionToken =
+            localStorage.getItem("crdgn_session_token");
+
+        if (!sessionToken) {
+
+            showMessage(
+                "Please login again",
+                true
+            );
+
+            return;
+        }
+
+
+        const { data: prepareData, error: prepareError } =
+            await supabaseClient.rpc(
+                "crdgn_prepare_friends_player",
+                {
+                    p_session_token: sessionToken,
+                    p_display_name: playerName
+                }
+            );
+
+
+        if (prepareError) {
+
+            console.error(
+                "Prepare Friends player error:",
+                prepareError
+            );
+
+            showMessage(
+                "Unable to prepare Friends account",
+                true
+            );
+
+            return;
+        }
+
+
+        const prepareResult =
+            prepareData?.[0];
+
+
+        if (
+            !prepareResult ||
+            prepareResult.success !== true
+        ) {
+
+            showMessage(
+                prepareResult?.message ||
+                "Friends account preparation failed",
+                true
+            );
+
+            return;
+        }
+
+
+        const friendsGameUserId =
+            prepareResult.game_user_id;
 
         // -----------------------------------------
         // CREATE TABLE
@@ -187,7 +568,7 @@ async function createTable() {
             await supabaseClient.rpc(
                 "crdg_create_friend_table",
                 {
-                    p_user_id: savedUserId,
+                    p_user_id: friendsGameUserId,
                     p_player_name: playerName,
                     p_phone: phone,
                     p_pool_type: poolType
@@ -258,6 +639,7 @@ async function createTable() {
         );
 
 
+
         localStorage.setItem(
             "crdg_host",
             "true"
@@ -275,7 +657,7 @@ async function createTable() {
                 {
                     p_table_id: tableId,
                     p_password: "5E2D",
-                    p_user_id: savedUserId,
+                    p_user_id: friendsGameUserId,
                     p_display_name: playerName
                 }
             );
@@ -318,6 +700,18 @@ async function createTable() {
             return;
         }
 
+        
+        // Save the exact seat assigned by crdg_join_table.
+        localStorage.setItem(
+            "crdg_seat_no",
+            String(joinResult.seat_no)
+        );
+
+        localStorage.setItem(
+            "crdg_fixed_seat_no",
+            String(joinResult.fixed_seat_no)
+        );
+
 
         // -----------------------------------------
         // Mark this player as HOST
@@ -330,7 +724,7 @@ async function createTable() {
                     is_host: true
                 })
                 .eq("table_id", tableId)
-                .eq("user_id", savedUserId);
+                .eq("user_id", friendsGameUserId);
 
 
         if (hostError) {
@@ -355,7 +749,7 @@ async function createTable() {
 
         localStorage.setItem(
             "crdg_user_id",
-            joinResult.user_id
+            friendsGameUserId
         );
 
         localStorage.setItem(
@@ -373,6 +767,15 @@ async function createTable() {
         // Go to waiting room
         // -----------------------------------------
 
+        // -----------------------------------------
+// Go to waiting room
+// -----------------------------------------
+
+        localStorage.setItem(
+            "crdg_join_mode",
+            "new"
+        );
+
         window.location.href =
             "friends.html";
 
@@ -380,6 +783,481 @@ async function createTable() {
 
         console.error(
             "Create table exception:",
+            error
+        );
+
+        showMessage(
+            "Unexpected error occurred",
+            true
+        );
+    }
+}
+
+
+// =====================================================
+// CREATE POINTS TABLE
+// =====================================================
+
+async function createPointsTable() {
+
+    if (!loggedInProfile) {
+
+        const loaded =
+            await loadLoggedInProfile();
+
+        if (!loaded) {
+
+            showMessage(
+                "Please login to create a POINTS table",
+                true
+            );
+
+            return;
+        }
+    }
+
+
+    const playerName =
+        String(loggedInProfile.name)
+            .trim()
+            .toUpperCase();
+
+
+    const phone =
+        String(loggedInProfile.phone_no)
+            .trim();
+
+
+    const multiplierElement =
+        document.querySelector(
+            'input[name="pointsMultiplier"]:checked'
+        );
+
+
+    if (!multiplierElement) {
+
+        showMessage(
+            "Please select a multiplier",
+            true
+        );
+
+        return;
+    }
+
+
+    const multiplier =
+        Number(multiplierElement.value);
+
+
+    // ---------------------------------------------
+    // VALIDATION
+    // ---------------------------------------------
+
+    if (!playerName) {
+
+        showMessage(
+            "Please enter your name",
+            true
+        );
+
+        return;
+    }
+
+
+    if (!/^[0-9]{10}$/.test(phone)) {
+
+        showMessage(
+            "Please enter a valid 10 digit phone number",
+            true
+        );
+
+        return;
+    }
+
+
+    if (
+        ![1, 5, 10, 50, 100, 200]
+            .includes(multiplier)
+    ) {
+
+        showMessage(
+            "Invalid multiplier",
+            true
+        );
+
+        return;
+    }
+
+
+    showMessage(
+        "Creating POINTS table..."
+    );
+
+
+    try {
+
+        // -----------------------------------------
+        // SESSION TOKEN
+        // -----------------------------------------
+
+        const sessionToken =
+            localStorage.getItem(
+                "crdgn_session_token"
+            );
+
+
+        if (!sessionToken) {
+
+            showMessage(
+                "Please login again",
+                true
+            );
+
+            return;
+        }
+
+
+        // -----------------------------------------
+        // PREPARE POINTS PLAYER
+        // -----------------------------------------
+
+        const {
+            data: prepareData,
+            error: prepareError
+        } =
+            await supabaseClient.rpc(
+                "crdgp_prepare_points_player",
+                {
+                    p_session_token:
+                        sessionToken,
+
+                    p_display_name:
+                        playerName
+                }
+            );
+
+
+        if (prepareError) {
+
+            console.error(
+                "Prepare POINTS player error:",
+                prepareError
+            );
+
+            showMessage(
+                "Unable to prepare POINTS account",
+                true
+            );
+
+            return;
+        }
+
+
+        const prepareResult =
+            prepareData?.[0];
+
+
+        if (
+            !prepareResult ||
+            prepareResult.success !== true
+        ) {
+
+            showMessage(
+                prepareResult?.message ||
+                "POINTS account preparation failed",
+                true
+            );
+
+            return;
+        }
+
+
+        const pointsGameUserId =
+            prepareResult.game_user_id;
+
+
+        // -----------------------------------------
+        // CREATE POINTS TABLE
+        // -----------------------------------------
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient.rpc(
+                "crdgp_create_points_table",
+                {
+                    p_session_token:
+                        sessionToken,
+
+                    p_player_name:
+                        playerName,
+
+                    p_phone:
+                        phone,
+
+                    p_multiplier:
+                        multiplier
+                }
+            );
+
+
+        if (error) {
+
+            console.error(
+                "POINTS create table error:",
+                error
+            );
+
+            showMessage(
+                "Unable to create POINTS table",
+                true
+            );
+
+            return;
+        }
+
+
+        const result =
+            data?.[0];
+
+
+        if (!result) {
+
+            showMessage(
+                "Unable to create POINTS table",
+                true
+            );
+
+            return;
+        }
+
+
+        if (result.status !== "success") {
+
+            showMessage(
+                result.message ||
+                "Unable to create POINTS table",
+                true
+            );
+
+            return;
+        }
+
+
+        const tableId =
+            Number(result.table_id);
+
+
+        // -----------------------------------------
+        // SAVE TABLE INFORMATION
+        // -----------------------------------------
+
+        localStorage.setItem(
+            "crdg_table",
+            tableId
+        );
+
+
+        localStorage.setItem(
+            "crdg_nickname",
+            playerName
+        );
+
+
+        localStorage.setItem(
+            "crdg_host",
+            "true"
+        );
+
+
+        localStorage.setItem(
+            "crdg_game_type",
+            "POINTS"
+        );
+
+
+        localStorage.setItem(
+            "crdgp_multiplier",
+            String(multiplier)
+        );
+
+
+        localStorage.setItem(
+            "crdgp_bet_chips",
+            String(80 * multiplier)
+        );
+
+
+        // -----------------------------------------
+        // HOST JOINS THE NEW TABLE
+        // USING EXISTING JOIN RPC
+        // -----------------------------------------
+
+        const {
+            data: joinData,
+            error: joinError
+        } =
+            await supabaseClient.rpc(
+                "crdg_join_table",
+                {
+                    p_table_id:
+                        tableId,
+
+                    p_password:
+                        "5E2D",
+
+                    p_user_id:
+                        pointsGameUserId,
+
+                    p_display_name:
+                        playerName
+                }
+            );
+
+
+        if (joinError) {
+
+            console.error(
+                "POINTS host join error:",
+                joinError
+            );
+
+            showMessage(
+                "Table created, but host could not join",
+                true
+            );
+
+            return;
+        }
+
+
+        const joinResult =
+            joinData?.[0];
+
+
+        if (
+            !joinResult ||
+            (
+                joinResult.status !== "success" &&
+                joinResult.status !== "reconnected"
+            )
+        ) {
+
+            showMessage(
+                joinResult?.message ||
+                "Host could not join POINTS table",
+                true
+            );
+
+            return;
+        }
+
+
+        // -----------------------------------------
+        // MARK HOST
+        // -----------------------------------------
+
+        const {
+            error: hostError
+        } =
+            await supabaseClient
+                .from("crdg_table_players")
+                .update({
+                    is_host: true
+                })
+                .eq(
+                    "table_id",
+                    tableId
+                )
+                .eq(
+                    "user_id",
+                    pointsGameUserId
+                );
+
+
+        if (hostError) {
+
+            console.error(
+                "POINTS host update error:",
+                hostError
+            );
+
+            showMessage(
+                "POINTS host setup failed",
+                true
+            );
+
+            return;
+        }
+
+
+        // -----------------------------------------
+        // SAVE GAME USER ID
+        // -----------------------------------------
+
+        localStorage.setItem(
+            "crdg_user_id",
+            pointsGameUserId
+        );
+
+        // Save the exact seat assigned by crdg_join_table.
+        localStorage.setItem(
+            "crdg_seat_no",
+            String(joinResult.seat_no)
+        );
+
+        localStorage.setItem(
+            "crdg_fixed_seat_no",
+            String(joinResult.fixed_seat_no)
+        );
+
+
+        // -----------------------------------------
+        // SUCCESS
+        // -----------------------------------------
+
+        showMessage(
+            "POINTS table created successfully"
+        );
+
+
+        console.log(
+            "POINTS TABLE CREATED:",
+            {
+                tableId,
+                multiplier,
+                betChips:
+                    80 * multiplier,
+                gameUserId:
+                    pointsGameUserId
+            }
+        );
+
+
+        // -----------------------------------------
+        // STOP HERE FOR THIS TEST
+        // -----------------------------------------
+        //
+        // We will connect the waiting room
+        // in the next stage.
+        //
+
+                // -----------------------------------------
+        // GO TO EXISTING FRIENDS WAITING ROOM
+        // -----------------------------------------
+
+        localStorage.setItem(
+            "crdg_join_mode",
+            "new"
+        );
+        window.location.href = "friends.html";
+
+    }
+    catch (error) {
+
+        console.error(
+            "POINTS create table exception:",
             error
         );
 
@@ -404,11 +1282,21 @@ async function joinFriendTable() {
                 .value
         );
 
+    if (!loggedInProfile) {
+
+        const loaded =
+            await loadLoggedInProfile();
+
+        if (!loaded) {
+            showMessage("Please login to join a Friends table", true);
+            return;
+        }
+    }
+
     const playerName =
-        document
-            .getElementById("joinPlayerName")
-            .value
-            .trim();
+        String(loggedInProfile.name)
+            .trim()
+            .toUpperCase();
 
 
     // ---------------------------------------------
@@ -501,6 +1389,12 @@ async function joinFriendTable() {
             return;
         }
 
+        const friendsGameUserId =
+            await getFriendsGameUserId();
+
+        if (!friendsGameUserId) {
+            return;
+        }
 
         // -----------------------------------------
         // Use existing join RPC
@@ -512,7 +1406,7 @@ async function joinFriendTable() {
                 {
                     p_table_id: tableId,
                     p_password: "5E2D",
-                    p_user_id: savedUserId,
+                    p_user_id: friendsGameUserId,
                     p_display_name: playerName
                 }
             );
@@ -583,9 +1477,30 @@ async function joinFriendTable() {
             playerName
         );
 
+        // Save the exact seat assigned by crdg_join_table.
+        localStorage.setItem(
+            "crdg_seat_no",
+            String(joinResult.seat_no)
+        );
+
+        localStorage.setItem(
+            "crdg_fixed_seat_no",
+            String(joinResult.fixed_seat_no)
+        );
+
         localStorage.setItem(
             "crdg_host",
             "false"
+        );
+
+
+        // -----------------------------------------
+        // Tell friends.html this is a NEW TABLE JOIN
+        // -----------------------------------------
+
+        localStorage.setItem(
+            "crdg_join_mode",
+            "new"
         );
 
 

@@ -3,9 +3,14 @@
 // =========================
 
 
+
 const SUPABASE_URL ='https://dbfycihbcosuxxkrmbhl.supabase.co';
 
 const SUPABASE_KEY ='sb_publishable_aOyXtAbzrrX0Z9jPAU1qEA_0ZnK35BX';
+
+
+
+
 
 
 const supabaseClient =
@@ -13,6 +18,26 @@ supabase.createClient(
 SUPABASE_URL,
 SUPABASE_KEY
 );
+
+
+// =====================================================
+// TABLE GAME TYPE
+// =====================================================
+
+const GAME_TYPE =
+    (
+        localStorage.getItem(
+            "crdg_game_type"
+        ) || "FRIENDS"
+    ).toUpperCase();
+
+console.log(
+    "CURRENT GAME TYPE:",
+    GAME_TYPE
+);
+
+const IS_POINTS =
+    GAME_TYPE === "POINTS";
 
 
 // =========================
@@ -72,13 +97,29 @@ let state = {
   settlementId: null,
   settlementOpened: false,
   pickedCard: null,
-  participatedInDeal : false
+  participatedInDeal : false,
+  drawInProgress: false,
+  myTurnPickAnimation: false,
+  registeredUserId: null,
+  activeGameRegistered: false,
+  groupsLocked : false,
+  groupsDealNo: null,
+  declarerWaitingWindowShown: false
 };
 
 
 
 const pickupSound = new Audio("pickup.mp3");
 const discardSound = new Audio("discard.mp3");
+
+
+
+// ==================================================
+// POINTS : EXIT BUTTON
+// ==================================================
+
+
+
 
 let savedUserId =
   localStorage.getItem("crdg_user_id");
@@ -99,8 +140,6 @@ let turnTimerHandle = null;
 
 let observationTimeRemaining = 30;
 
-
-const GAME_TYPE = "FRIENDS";
 
 // ==========================================
 // PREVENT ACCIDENTAL BACK DURING FRIENDS GAME
@@ -1100,27 +1139,6 @@ function groupSelectedCards() {
 
     ensureSixGroups();
 
-    // ==========================================================
-    // GROUPING RULES
-    // ==========================================================
-    // G1-G5 = real user groups.
-    // G6     = overflow / unassigned group.
-    //
-    // A) Selected cards from ONE normal group (G1-G5):
-    //    selected cards stay in their parent group.
-    //
-    // B) Selected cards from MULTIPLE groups:
-    //    there is no parent. Selected cards are assigned to the
-    //    first available group in G1 -> G5.
-    //
-    // C) Selected cards from G6:
-    //    G6 is not a parent. Selected cards are assigned to the
-    //    first available group in G1 -> G5.
-    //
-    // D) Every remaining/unassigned card is redistributed by
-    //    checking availability in strict order G1 -> G6.
-    // ==========================================================
-
     const selected = [];
     const seen = new Set();
 
@@ -1175,11 +1193,52 @@ function groupSelectedCards() {
         sourceNumbers[0] >= 0 &&
         sourceNumbers[0] <= 4;
 
-    // ==========================================================
-    // CASE A: SINGLE NORMAL PARENT G1-G5
-    // ==========================================================
-    if (hasSingleNormalParent) {
+    // SPECIAL CASE:
+    // 3 or more selected cards from 3 or more different groups.
+    // Move only the selected cards to a free group.
+    // Keep every unselected card in its original group.
+    // Skip single-card cleanup below so source groups remain intact.
+    const isThreePlusGroupsCase =
+        selected.length >= 3 &&
+        sourceNumbers.length >= 3;
 
+    if (isThreePlusGroupsCase) {
+
+        // Remove only selected cards from their source groups.
+        sourceGroups.forEach((source, groupNo) => {
+            state.groups[groupNo] = source.cards.filter(
+                (_, index) => !source.selectedIndexes.has(index)
+            );
+        });
+
+        const sourceGroupSet = new Set(sourceNumbers);
+        let selectedTarget = -1;
+
+        // Find the next empty group G1-G5 that is not one of
+        // the selected cards' source groups.
+        for (let g = 0; g < 5; g++) {
+            if (
+                !sourceGroupSet.has(g) &&
+                state.groups[g].length === 0
+            ) {
+                selectedTarget = g;
+                break;
+            }
+        }
+
+        // If no free user group exists, use G6 as the fallback.
+        // Append rather than overwrite any cards already in G6.
+        if (selectedTarget === -1) {
+            selectedTarget = 5;
+        }
+
+        state.groups[selectedTarget].push(
+            ...selected.map(item => item.card)
+        );
+
+    } else if (hasSingleNormalParent) {
+
+        // EXISTING BEHAVIOR — selection from one normal group.
         const parentGroup = sourceNumbers[0];
         const source = sourceGroups.get(parentGroup);
 
@@ -1191,18 +1250,14 @@ function groupSelectedCards() {
             (_, index) => !source.selectedIndexes.has(index)
         );
 
-        // Selected cards stay with their parent.
+        // Selected cards stay in their parent group.
         state.groups[parentGroup] = selectedCards;
 
-        // Remaining cards are now invalid/unassigned.
-        // If only ONE card remains, keep it in G6 so the
-        // user does not see a one-card group.
-        // Otherwise find ONE available group in G1 -> G5,
-        // then put ALL remaining cards into that SAME group.
+        // Preserve existing redistribution behavior.
         let remainingTarget = -1;
 
         if (remainingCards.length === 1) {
-            remainingTarget = 5; // G6
+            remainingTarget = 5;
         } else {
             for (let g = 0; g < 5; g++) {
                 if (state.groups[g].length === 0) {
@@ -1211,24 +1266,20 @@ function groupSelectedCards() {
                 }
             }
 
-            // If no G1-G5 group is available, use G6.
             if (remainingTarget === -1) {
                 remainingTarget = 5;
             }
         }
 
         state.groups[remainingTarget].push(...remainingCards);
-    }
 
-    // ==========================================================
-    // CASE B/C: MULTIPLE GROUPS OR SELECTION FROM G6
-    // ==========================================================
-    else {
+    } else {
 
+        // EXISTING BEHAVIOR — multiple groups / G6 selection.
+        // This branch remains unchanged for the other cases.
         const selectedCards = selected.map(item => item.card);
         const remainingCards = [];
 
-        // Collect all unselected cards from the source groups.
         sourceGroups.forEach((source, groupNo) => {
             source.cards.forEach((card, index) => {
                 if (!source.selectedIndexes.has(index)) {
@@ -1237,17 +1288,10 @@ function groupSelectedCards() {
             });
         });
 
-        // Clear the source groups completely. This is important:
-        // otherwise a source group's remaining cards would prevent
-        // the G1 -> G5 availability search from finding a free group.
         sourceGroups.forEach((source, groupNo) => {
             state.groups[groupNo] = [];
         });
 
-        // --------------------------------------------------------
-        // FIRST assign the SELECTED cards.
-        // No parent exists here, so ALWAYS check G1 -> G5.
-        // --------------------------------------------------------
         let selectedTarget = -1;
 
         for (let g = 0; g < 5; g++) {
@@ -1257,18 +1301,12 @@ function groupSelectedCards() {
             }
         }
 
-        // If all G1-G5 are occupied, G6 is the only safe place.
         if (selectedTarget === -1) {
             selectedTarget = 5;
         }
 
         state.groups[selectedTarget].push(...selectedCards);
 
-        // --------------------------------------------------------
-        // THEN redistribute the remaining cards.
-        // IMPORTANT: check availability ONCE, then keep ALL
-        // remaining cards together in that SAME group.
-        // --------------------------------------------------------
         let remainingTarget = -1;
 
         for (let g = 0; g < 6; g++) {
@@ -1285,28 +1323,20 @@ function groupSelectedCards() {
         state.groups[remainingTarget].push(...remainingCards);
     }
 
-
-
-            // ==========================================
-        // CLEAN SINGLE-CARD GROUPS
-        // ==========================================
-        // Any G1-G5 containing exactly ONE card
-        // is moved to G6.
-        // G6 is the overflow / unassigned group.
-
+    // Keep the existing single-card cleanup for all old cases.
+    // In the new 3+-groups case, do not move remaining cards,
+    // because they must stay in their original groups.
+    if (!isThreePlusGroupsCase) {
         for (let g = 0; g < 5; g++) {
-
             if (
                 state.groups[g] &&
                 state.groups[g].length === 1
             ) {
-
-                const singleCard =
-                    state.groups[g].shift();
-
+                const singleCard = state.groups[g].shift();
                 state.groups[5].push(singleCard);
             }
         }
+    }
 
     clearCardSelection();
 
@@ -1319,6 +1349,134 @@ function groupSelectedCards() {
 
     renderHand();
     calculateDealScore();
+}
+
+
+function setGroupsLocked(locked) {
+
+    state.groupsLocked = locked;
+
+    // Disable or enable all six card groups.
+    for (let g = 0; g < 6; g++) {
+
+        const groupEl =
+            document.getElementById("group" + g);
+
+        if (groupEl) {
+            groupEl.style.pointerEvents =
+                locked ? "none" : "";
+        }
+    }
+
+    // Remove the GROUP button when locked.
+    if (locked) {
+
+        const groupButton =
+            document.getElementById("groupActionButton");
+
+        if (groupButton) {
+            groupButton.remove();
+        }
+    }
+}
+
+
+
+async function loadTopGameType()
+{
+    // =====================================================
+    // POINTS GAME
+    // =====================================================
+
+    if (
+        typeof GAME_TYPE !== "undefined" &&
+        GAME_TYPE === "POINTS"
+    )
+    {
+        const {
+            data: multiplierData,
+            error: multiplierError
+        } =
+            await supabaseClient.rpc(
+                "crdgp_get_multiplier",
+                {
+                    p_table_id:
+                        Number(state.tableId)
+                }
+            );
+
+        if (multiplierError)
+        {
+            console.error(
+                "POINTS multiplier load failed:",
+                multiplierError
+            );
+
+            return;
+        }
+
+        const multiplier =
+            Number(multiplierData) || 1;
+
+        const el =
+            document.getElementById(
+                "topGameType"
+            );
+
+        if (el)
+        {
+            el.innerText =
+                "Points:( 80 x " +
+                multiplier +
+                ")";
+        }
+
+        console.log(
+            "POINTS top game:",
+            "Points(80 x " + multiplier + ")"
+        );
+
+        return;
+    }
+
+
+    // =====================================================
+    // EXISTING POOL GAME
+    // DO NOT CHANGE
+    // =====================================================
+
+    const { data, error } =
+        await supabaseClient
+            .from("crdg_game_tables")
+            .select("max_elimination_score")
+            .eq("table_id", state.tableId)
+            .single();
+
+    if (error)
+    {
+        console.error(
+            "Failed to load game type:",
+            error
+        );
+
+        return;
+    }
+
+    const gameType =
+        Number(data.max_elimination_score) === 101
+            ? "101 POOL"
+            : "201 POOL";
+
+    const el =
+        document.getElementById(
+            "topGameType"
+        );
+
+    if (el)
+    {
+        el.innerText =
+            gameType;
+    }
 }
 
 // =========================
@@ -1684,6 +1842,9 @@ groupEl.appendChild(div);
 
     }
 
+    saveGroupLayout();
+
+
    updateGroupButton();
 
 }
@@ -1739,6 +1900,13 @@ function startObservationTimer()
 
 
     // --------------------------------------------------
+    // Reset POINTS offline-check flag
+    // --------------------------------------------------
+
+    state.pointsOfflineCheckDone = false;
+
+
+    // --------------------------------------------------
     // No observation end time
     // --------------------------------------------------
 
@@ -1748,7 +1916,7 @@ function startObservationTimer()
     }
 
 
-    function updateObservationTimer()
+    async function updateObservationTimer()
     {
         if (!state.observationEndAt)
         {
@@ -1777,6 +1945,53 @@ function startObservationTimer()
             "Observation (" +
             seconds +
             "s)";
+
+
+        // --------------------------------------------------
+        // POINTS:
+        // Check offline players at 5 seconds
+        // --------------------------------------------------
+
+        if (
+            typeof GAME_TYPE !== "undefined" &&
+            GAME_TYPE === "POINTS" &&
+            seconds === 5 &&
+            !state.pointsOfflineCheckDone
+        )
+        {
+            state.pointsOfflineCheckDone = true;
+
+            console.log(
+                "POINTS: 5-second offline check started."
+            );
+
+
+            const {
+                data,
+                error
+            } = await supabaseClient.rpc(
+                "crdgp_mark_offline_points_players",
+                {
+                    p_session_id: state.sessionId
+                }
+            );
+
+
+            if (error)
+            {
+                console.error(
+                    "POINTS: Offline player check failed:",
+                    error
+                );
+            }
+            else
+            {
+                console.log(
+                    "POINTS: Offline players marked:",
+                    data
+                );
+            }
+        }
 
 
         // --------------------------------------------------
@@ -1842,6 +2057,311 @@ function startObservationTimer()
 }
 
 
+
+// ==================================================
+// POINTS : EXIT TABLE
+// ==================================================
+
+async function exitPointsTable()
+{
+    // --------------------------------------------------
+    // POINTS ONLY
+    // --------------------------------------------------
+
+    if (
+        typeof GAME_TYPE === "undefined" ||
+        GAME_TYPE !== "POINTS"
+    )
+    {
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // CONFIRM
+    // --------------------------------------------------
+
+    const confirmed =
+        confirm(
+            "Exit this POINTS table?\n\n" +
+            "The current deal will be settled first, " +
+            "then you will be eliminated."
+        );
+
+
+    if (!confirmed)
+    {
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // BUTTON
+    // --------------------------------------------------
+
+    const button =
+        document.getElementById(
+            "btnExitPointsTable"
+        );
+
+
+    if (button)
+    {
+        button.disabled = true;
+
+        button.innerText =
+            "PROCESSING...";
+    }
+
+
+    try
+    {
+        const sessionToken =
+            localStorage.getItem(
+                "crdgn_session_token"
+            );
+
+
+        if (!sessionToken)
+        {
+            alert(
+                "Login session is not available. Please login again."
+            );
+
+            if (button)
+            {
+                button.disabled = false;
+                button.innerText = "EXIT TABLE";
+            }
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // SETTLEMENT → ELIMINATION → PLAYER COUNT
+        // --------------------------------------------------
+
+        console.log(
+            "POINTS: Exit requested. Settling current deal first..."
+        );
+
+
+        const {
+            data,
+            error
+        } =
+        await supabaseClient.rpc(
+            "crdgp_exit_points_table",
+            {
+                p_session_token:
+                    sessionToken,
+
+                p_session_id:
+                    state.sessionId
+            }
+        );
+
+
+        if (error)
+        {
+            console.error(
+                "POINTS exit error:",
+                error
+            );
+
+            alert(
+                error.message ||
+                "Unable to exit POINTS table."
+            );
+
+            if (button)
+            {
+                button.disabled = false;
+                button.innerText = "EXIT TABLE";
+            }
+
+            return;
+        }
+
+
+        const result =
+            Array.isArray(data)
+                ? data[0]
+                : data;
+
+
+        console.log(
+            "POINTS exit result:",
+            result
+        );
+
+
+        if (
+            !result ||
+            result.success !== true
+        )
+        {
+            alert(
+                result?.message ||
+                "Unable to exit POINTS table."
+            );
+
+            if (button)
+            {
+                button.disabled = false;
+                button.innerText = "EXIT TABLE";
+            }
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // TABLE COMPLETED
+        // --------------------------------------------------
+
+        if (
+            result.table_completed === true
+        )
+        {
+            console.log(
+                "POINTS: Exit completed table."
+            );
+
+
+            // Reload session so handleTableCompleted
+            // receives the latest state.
+
+            const {
+                data: sessionData,
+                error: sessionError
+            } =
+            await supabaseClient
+                .from("crdg_game_sessions")
+                .select("*")
+                .eq(
+                    "session_id",
+                    state.sessionId
+                )
+                .single();
+
+
+            if (sessionError)
+            {
+                console.error(
+                    "POINTS final session reload failed:",
+                    sessionError
+                );
+
+                return;
+            }
+
+
+            handleTableCompleted(
+                sessionData
+            );
+
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // TABLE CONTINUES
+        // --------------------------------------------------
+
+        console.log(
+            "POINTS: Exit successful. " +
+            "Remaining players:",
+            result.remaining_players
+        );
+
+
+        // The exiting player should not
+        // start the next deal.
+
+        state.playerStatus =
+            "ELIMINATED";
+
+
+        state.ignoreResultWindow =
+            true;
+
+
+        state.resultWindowOpened =
+            false;
+
+
+        state.resultWindowLoaded =
+            false;
+
+
+        clearInterval(
+            state.observationTimerInterval
+        );
+
+
+        document.getElementById(
+            "dealResultModal"
+        ).style.display = "none";
+
+
+        // --------------------------------------------------
+        // IMPORTANT
+        //
+        // Existing dealer will start the next deal.
+        // We simply refresh this eliminated player.
+        // --------------------------------------------------
+
+        setTimeout(
+            async () =>
+            {
+                try
+                {
+                    await loadGame();
+
+                    await loadSessionInfo();
+
+                    await loadPlayers();
+
+                    state.ignoreResultWindow =
+                        false;
+                }
+                catch (error)
+                {
+                    console.error(
+                        "POINTS exited-player refresh failed:",
+                        error
+                    );
+                }
+            },
+            2500
+        );
+
+    }
+    catch (error)
+    {
+        console.error(
+            "POINTS exit unexpected error:",
+            error
+        );
+
+
+        alert(
+            error.message ||
+            "Unable to exit POINTS table."
+        );
+
+
+        if (button)
+        {
+            button.disabled = false;
+            button.innerText = "EXIT TABLE";
+        }
+    }
+}
+
 async function onObservationTimerExpired()
 {
     
@@ -1893,12 +2413,302 @@ async function onObservationTimerExpired()
 
 
     // --------------------------------------------------
+    // POINTS GAME
+    //
+    // 1. Settle the completed deal
+    // 2. Eliminate offline players marked at 5 seconds
+    // 3. Check remaining active players
+    // 4. If only one remains → finish table
+    // 5. Otherwise → start next deal
+    // --------------------------------------------------
+
+    if (
+        typeof GAME_TYPE !== "undefined" &&
+        GAME_TYPE === "POINTS"
+    ) {
+
+        console.log(
+            "POINTS: Observation timer expired. Settling deal..."
+        );
+
+
+        // --------------------------------------------------
+        // SETTLE CURRENT DEAL
+        // --------------------------------------------------
+
+        const {
+            data: settlementData,
+            error: settlementError
+        } =
+        await supabaseClient.rpc(
+            "crdgp_settle_points_deal",
+            {
+                p_session_id:
+                    state.sessionId
+            }
+        );
+
+
+        if (settlementError)
+        {
+            console.error(
+                "POINTS settlement failed:",
+                settlementError
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "POINTS settlement result:",
+            settlementData
+        );
+
+
+        // --------------------------------------------------
+        // RELOAD SESSION AFTER SETTLEMENT
+        // --------------------------------------------------
+
+        const {
+            data: settledSession,
+            error: settledSessionError
+        } =
+        await supabaseClient
+            .from("crdg_game_sessions")
+            .select("*")
+            .eq(
+                "session_id",
+                state.sessionId
+            )
+            .single();
+
+
+        if (settledSessionError)
+        {
+            console.error(
+                "POINTS post-settlement session check failed:",
+                settledSessionError
+            );
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // TABLE COMPLETED AFTER SETTLEMENT?
+        // --------------------------------------------------
+
+        if (
+            settledSession.game_completed === true
+        )
+        {
+            console.log(
+                "POINTS: Table completed after settlement."
+            );
+
+            handleTableCompleted(
+                settledSession
+            );
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // ELIMINATE FLAGGED OFFLINE PLAYERS
+        //
+        // Players marked at the 5-second observation
+        // checkpoint are eliminated only AFTER the
+        // current deal has been settled.
+        // --------------------------------------------------
+
+        console.log(
+            "POINTS: Checking flagged offline players before next deal..."
+        );
+
+
+        const {
+            data: eliminatedCount,
+            error: eliminationError
+        } =
+        await supabaseClient.rpc(
+            "crdgp_eliminate_flagged_points_players",
+            {
+                p_session_id:
+                    state.sessionId
+            }
+        );
+
+
+        if (eliminationError)
+        {
+            console.error(
+                "POINTS: Offline player elimination failed:",
+                eliminationError
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "POINTS: Offline players eliminated:",
+            eliminatedCount
+        );
+
+
+        // --------------------------------------------------
+        // CHECK REMAINING ACTIVE PLAYERS
+        // --------------------------------------------------
+
+        const {
+            data: remainingPlayers,
+            error: remainingPlayersError
+        } =
+        await supabaseClient
+            .from("crdg_table_players")
+            .select("user_id, seat_no")
+            .eq(
+                "table_id",
+                state.tableId
+            )
+            .eq(
+                "is_active",
+                true
+            )
+            .eq(
+                "is_eliminated",
+                false
+            );
+
+
+        if (remainingPlayersError)
+        {
+            console.error(
+                "POINTS: Failed to check remaining players:",
+                remainingPlayersError
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "POINTS: Remaining active players:",
+            remainingPlayers.length
+        );
+
+
+        // --------------------------------------------------
+        // ONLY ONE PLAYER REMAINS
+        //
+        // Finish table directly.
+        // DO NOT start another deal.
+        // --------------------------------------------------
+
+        if (
+            remainingPlayers.length <= 1
+        )
+        {
+            console.log(
+                "POINTS: Only one active player remains. Finishing table..."
+            );
+
+
+            const {
+                data: finishData,
+                error: finishError
+            } =
+            await supabaseClient.rpc(
+                "crdg_finish_table",
+                {
+                    p_session_id:
+                        state.sessionId
+                }
+            );
+
+
+            if (finishError)
+            {
+                console.error(
+                    "POINTS: Table finish failed:",
+                    finishError
+                );
+
+                return;
+            }
+
+
+            console.log(
+                "POINTS: Table finished:",
+                finishData
+            );
+
+
+            // --------------------------------------------------
+            // RELOAD FINAL SESSION
+            // --------------------------------------------------
+
+            const {
+                data: finalSession,
+                error: finalSessionError
+            } =
+            await supabaseClient
+                .from("crdg_game_sessions")
+                .select("*")
+                .eq(
+                    "session_id",
+                    state.sessionId
+                )
+                .single();
+
+
+            if (finalSessionError)
+            {
+                console.error(
+                    "POINTS: Final session reload failed:",
+                    finalSessionError
+                );
+
+                return;
+            }
+
+
+            // --------------------------------------------------
+            // SHOW TABLE COMPLETED WINDOW
+            // --------------------------------------------------
+
+            handleTableCompleted(
+                finalSession
+            );
+
+            return;
+        }
+
+
+        // --------------------------------------------------
+        // MORE THAN ONE PLAYER REMAINS
+        // START NEXT DEAL
+        // --------------------------------------------------
+
+        console.log(
+            "POINTS: Settlement and offline elimination completed. Starting next deal..."
+        );
+
+
+        await startNextDeal();
+
+        return;
+    }
+
+
+    // --------------------------------------------------
     // NORMAL GAME → START NEXT DEAL
     // --------------------------------------------------
 
     await startNextDeal();
 }
-
 
 function resetSettlementControls() {
 
@@ -1950,6 +2760,15 @@ async function startNextDeal()
         return;
     }
 
+    state.myTurnPickAnimation = false;
+    document
+            .getElementById("openVisual")
+            .classList.remove("pick-card-pulse");
+
+        document
+            .getElementById("stockCard")
+            .classList.remove("pick-card-pulse");
+
     closeSettlementPopup();
 
 
@@ -1994,6 +2813,9 @@ async function startNextDeal()
 
         return;
     }
+
+    // New deal is starting: unlock this player's groups.
+     setGroupsLocked(false);
 
 
     // ==================================================
@@ -2621,52 +3443,95 @@ function closeHistoryPopup() {
 // =========================
 // DRAW
 // =========================
+// =========================
+// DRAW
+// =========================
 async function draw(source, targetGroup = 5) {
 
-  if (!state.sessionId) return;
-  if(state.declarationMode){
+    // =====================================================
+    // PREVENT DOUBLE / MULTIPLE CLICK DRAW
+    // =====================================================
 
-    return;
-   }
-
-   
-
-    if (
-        Number(state.seatNo) !==
-        Number(state.currentTurnSeat)
-    ) {
-        alert("Please wait. It is another player's turn.");
+    if (state.drawInProgress === true) {
+        console.log(
+            "DRAW ignored: another draw is already in progress."
+        );
         return;
     }
 
-    const cardCount = getTotalCards();
-
-    if (cardCount !== 13) {
-        alert("You have already picked a card. Please discard or declare.");
-        return;
-    }
-
-    // existing draw code...
+    // Lock immediately BEFORE any async operation.
+    state.drawInProgress = true;
 
 
-  const { data, error } = await supabaseClient.rpc("crdg_draw_card", {
-    p_session_id: state.sessionId,
-    p_table_id: state.tableId,
-    p_user_id: state.userId,
-    p_source: source
-  });
+    try
+    {
+        if (!state.sessionId) {
+            return;
+        }
 
-  if (error) {
-    console.error(error);
-    return;
-  }
+        if (state.declarationMode) {
+            return;
+        }
 
-        if(
+
+        if (
+            Number(state.seatNo) !==
+            Number(state.currentTurnSeat)
+        ) {
+            alert(
+                "Please wait. It is another player's turn."
+            );
+            return;
+        }
+
+
+        const cardCount =
+            getTotalCards();
+
+
+        if (cardCount !== 13) {
+            alert(
+                "You have already picked a card. Please discard or declare."
+            );
+            return;
+        }
+
+
+        // =================================================
+        // EXISTING DRAW CODE STARTS HERE
+        // =================================================
+
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdg_draw_card",
+                {
+                    p_session_id:
+                        state.sessionId,
+
+                    p_table_id:
+                        state.tableId,
+
+                    p_user_id:
+                        state.userId,
+
+                    p_source:
+                        source
+                }
+            );
+
+
+        if (error) {
+            console.error(error);
+            return;
+        }
+
+
+        if (
             data &&
             data.length > 0 &&
-            data[0].status === "cannot_pick_joker"
-        )
-        {
+            data[0].status ===
+                "cannot_pick_joker"
+        ) {
             alert(
                 "Cannot pick discarded Joker / Wild Joker"
             );
@@ -2674,39 +3539,79 @@ async function draw(source, targetGroup = 5) {
             return;
         }
 
-  const card = data?.[0]?.card;
 
-  if (card) {
+        const card =
+            data?.[0]?.card;
 
-        pickupSound.currentTime = 0;
-        pickupSound.play().catch(() => {});
+
+        if (card) {
+
+                    // =================================================
+        // STOP PICK CARD ANIMATION
+        // Card was successfully picked
+        // =================================================
+        state.myTurnPickAnimation = false;
+
+        document
+            .getElementById("openVisual")
+            .classList.remove("pick-card-pulse");
+
+        document
+            .getElementById("stockCard")
+            .classList.remove("pick-card-pulse");
+
+            pickupSound.currentTime = 0;
+
+            pickupSound
+                .play()
+                .catch(() => {});
+
 
             ensureSixGroups();
 
-        // Destination:
-        // G1-G6 when dragged to a group.
-        // G6 when using normal click.
-        const destinationGroup =
-            Number.isInteger(targetGroup) &&
-            targetGroup >= 0 &&
-            targetGroup <= 5
-                ? targetGroup
-                : 5;
 
-        state.groups[destinationGroup].push(card);
+            const destinationGroup =
+                Number.isInteger(targetGroup) &&
+                targetGroup >= 0 &&
+                targetGroup <= 5
+                    ? targetGroup
+                    : 5;
 
-        state.pickedCard = {
-            card: card,
-            group: destinationGroup,
-            index: state.groups[destinationGroup].length - 1
-        };
 
-    //await loadSessionInfo();
-    renderHand();
-    calculateDealScore();
+            state.groups[
+                destinationGroup
+            ].push(card);
 
-    updateActionButtons();
-}
+
+            state.pickedCard = {
+                card: card,
+                group: destinationGroup,
+                index:
+                    state.groups[
+                        destinationGroup
+                    ].length - 1
+            };
+
+
+            renderHand();
+
+            calculateDealScore();
+
+            updateActionButtons();
+        }
+    }
+    finally
+    {
+        // =================================================
+        // ALWAYS RELEASE DRAW LOCK
+        // =================================================
+
+        state.drawInProgress = false;
+
+        console.log(
+            "DRAW lock released."
+        );
+    }
 }
 
 
@@ -2755,6 +3660,17 @@ async function dropCurrentDeal()
         return;
     }
 
+    
+        state.myTurnPickAnimation = false;
+
+        document
+            .getElementById("openVisual")
+            .classList.remove("pick-card-pulse");
+
+        document
+            .getElementById("stockCard")
+            .classList.remove("pick-card-pulse");
+
     await loadSessionInfo();
     await loadPlayers();
 
@@ -2762,6 +3678,22 @@ async function dropCurrentDeal()
     state.dropType = data[0].drop_type;
 
     renderHand();
+}
+
+
+
+// ==========================================
+// MY TURN - MOBILE VIBRATION
+// ==========================================
+
+function startMyTurnVibration() {
+
+    if (!("vibrate" in navigator)) {
+        return;
+    }
+
+    // Vibrate once when it becomes my turn
+    navigator.vibrate(300);
 }
 
 // ==========================================================
@@ -3039,6 +3971,8 @@ function subscribeRealtime() {
         });
 }
 
+
+
 async function handleTableCompleted(data)
 {
     // Prevent duplicate execution
@@ -3049,6 +3983,9 @@ async function handleTableCompleted(data)
 
 
     state.tableCompleted = true;
+
+    // POINTS heartbeat is no longer required.
+    stopPointsHeartbeat();
 
     // Stop timers
     clearInterval(
@@ -3117,6 +4054,9 @@ async function handleTableCompleted(data)
     {
         dealResultModal.style.display = "none";
     }
+
+    await completeFriendsGamePayout();
+
 
     showTableCompletedScreen(data);
 
@@ -3366,6 +4306,117 @@ async function showTableCompletedScreen(data)
     }
 }
 
+async function completeFriendsGamePayout()
+{
+    try
+    {
+        const sessionToken =
+            localStorage.getItem(
+                "crdgn_session_token"
+            );
+
+
+        if(!sessionToken)
+        {
+            console.error(
+                "crdgn_session_token not found"
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "Starting Friends Rummy payout...",
+            state.sessionId
+        );
+
+
+        const {
+            data,
+            error
+        } =
+        await supabaseClient.rpc(
+            "crdgn_complete_friends_game",
+            {
+                p_session_token:
+                    sessionToken,
+
+                p_session_id:
+                    state.sessionId
+            }
+        );
+
+
+        if(error)
+        {
+            console.error(
+                "Friends game payout error:",
+                error
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "Friends game payout result:",
+            data
+        );
+
+
+        if(
+            data &&
+            data.length > 0
+        )
+        {
+            const result =
+                data[0];
+
+
+            if(result.success)
+            {
+                console.log(
+                    "Payout completed:",
+                    result.message
+                );
+
+                console.log(
+                    "POT:",
+                    result.total_pot
+                );
+
+                console.log(
+                    "Paid players:",
+                    result.paid_players
+                );
+
+
+                if(result.already_paid)
+                {
+                    console.log(
+                        "Payout was already processed."
+                    );
+                }
+            }
+            else
+            {
+                console.warn(
+                    "Payout was not completed:",
+                    result.message
+                );
+            }
+        }
+    }
+    catch(error)
+    {
+        console.error(
+            "Unexpected payout error:",
+            error
+        );
+    }
+}
+
 
 function getTableCardHTML(card) {
 
@@ -3387,6 +4438,34 @@ function getTableCardHTML(card) {
         <span class="card-rank">${rank}</span>
         <span class="card-suit">${suit}</span>
     `;
+}
+
+
+function showDeclarerWaitingWindow() {
+
+    hideBaseTableHand();
+
+    const timer = document.getElementById("observationTimer");
+    if (timer) {
+        timer.innerText = "Waiting for players...";
+    }
+
+    const container = document.getElementById("dealResultsContainer");
+    if (container) {
+        container.innerHTML = `
+            <div style="padding:24px;text-align:center;font-size:16px;font-weight:bold;">
+                Valid declaration accepted.<br><br>
+                Waiting for the other players' declaration timers to finish...
+            </div>
+        `;
+    }
+
+    const modal = document.getElementById("dealResultModal");
+    if (modal) {
+        modal.style.display = "block";
+    }
+
+    state.declarerWaitingWindowShown = true;
 }
 
 
@@ -3450,6 +4529,34 @@ async function loadSessionInfo() {
     state.deal_no = data.deal_no;
     state.declarationEndAt =  data.declaration_end_at;
     state.observationEndAt =  data.observation_end_at;
+
+    // =====================================================
+        // MY TURN PICK ANIMATION
+        // =====================================================
+        if (
+            state.currentTurnSeat === state.seatNo &&
+            state.hand.length === 13 &&
+            !state.pickedCard
+        ) {
+            state.myTurnPickAnimation = true;
+                // Mobile vibration
+            startMyTurnVibration();
+        }
+
+
+        // =====================================================
+        // START PICK CARD ANIMATION
+        // =====================================================
+        if (state.myTurnPickAnimation) {
+
+            document
+                .getElementById("openVisual")
+                .classList.add("pick-card-pulse");
+
+            document
+                .getElementById("stockCard")
+                .classList.add("pick-card-pulse");
+        }
 
 
     if (
@@ -3552,9 +4659,33 @@ async function loadSessionInfo() {
     state.declarationMode =
     data.declaration_started || false;
 
+    const iAmValidDeclarer =
+        state.declarationMode &&
+        data.declaration_user_id &&
+        String(data.declaration_user_id).toLowerCase() ===
+            String(state.userId).toLowerCase();
+
+    // The valid declarer moves to the waiting/observation screen
+    // immediately. The actual observation countdown still starts
+    // only when the server marks deal_results_ready.
+    if (
+        iAmValidDeclarer &&
+        data.deal_results_ready !== true &&
+        !state.resultWindowOpened &&
+        !state.declarerWaitingWindowShown
+    ) {
+        showDeclarerWaitingWindow();
+    }
+
+    if (
+        data.deal_results_ready === true
+    ) {
+        state.declarerWaitingWindowShown = false;
+    }
 
      if(
           state.declarationMode &&
+          !iAmValidDeclarer &&
           !state.declarationTimerStarted
       ){
 
@@ -3722,6 +4853,15 @@ function startDeclarationTimer() {
     clearInterval(
         state.declarationTimerInterval
     );
+    state.myTurnPickAnimation = false;
+    document
+            .getElementById("openVisual")
+            .classList.remove("pick-card-pulse");
+
+        document
+            .getElementById("stockCard")
+            .classList.remove("pick-card-pulse");
+
 
     function updateDeclarationTimer() {
 
@@ -3779,7 +4919,197 @@ function startDeclarationTimer() {
 }
 
 
-function showOpenPileHistory(event)
+function ensureDiscardHistoryStyles()
+{
+    if (document.getElementById("discardHistoryPlayerWiseStyles")) {
+        return;
+    }
+
+    const style = document.createElement("style");
+    style.id = "discardHistoryPlayerWiseStyles";
+
+    style.textContent = `
+        .discard-player-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 108px minmax(0, 1fr);
+            align-items: center;
+            column-gap: 10px;
+            margin: 0 0 8px;
+            text-align: left;
+        }
+
+        .discard-player-name {
+            margin: 0;
+            padding: 0;
+            min-width: 0;
+            font-size: 14px;
+            font-weight: 900;
+            color: #111;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .discard-player-strip {
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .discard-nav-btn {
+            flex: 0 0 28px;
+            width: 28px;
+            height: 52px;
+            padding: 0;
+            border: none;
+            border-radius: 6px;
+            background: #333;
+            color: #fff;
+            font-size: 20px;
+            font-weight: 900;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .discard-nav-btn:disabled {
+            opacity: .28;
+            cursor: default;
+        }
+
+        .discard-cards-viewport {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .discard-cards-line {
+            width: max-content;
+            min-width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 5px;
+            min-height: 54px;
+        }
+
+        .discard-history-card {
+            flex: 0 0 42px;
+            width: 42px;
+            height: 54px;
+            box-sizing: border-box;
+            background: #fff;
+            border: 1px solid #444;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 900;
+            box-shadow: 0 2px 4px rgba(0,0,0,.20);
+        }
+
+        .discard-page-label {
+            grid-column: 2;
+            margin: 1px 0 0;
+            font-size: 9px;
+            font-weight: 700;
+            color: #666;
+            text-align: left;
+        }
+
+        .discard-history-empty {
+            padding: 12px 4px 4px;
+            color: #555;
+            font-weight: 700;
+        }
+
+        /* Keep navigation space even when hidden */
+        .discard-nav-btn[style*="display: none"] {
+            visibility: hidden;
+        }
+
+        /* 5 or 6 players */
+        #openPileHistoryCards[data-player-count="5"] .discard-player-row,
+        #openPileHistoryCards[data-player-count="6"] .discard-player-row {
+            margin-bottom: 5px;
+            grid-template-columns: 96px minmax(0, 1fr);
+        }
+
+        #openPileHistoryCards[data-player-count="5"] .discard-history-card,
+        #openPileHistoryCards[data-player-count="6"] .discard-history-card {
+            flex-basis: 40px;
+            width: 40px;
+            height: 50px;
+            font-size: 13px;
+        }
+
+        #openPileHistoryCards[data-player-count="5"] .discard-nav-btn,
+        #openPileHistoryCards[data-player-count="6"] .discard-nav-btn {
+            flex-basis: 24px;
+            width: 24px;
+            height: 48px;
+        }
+
+        @media (max-width: 700px) {
+
+            .discard-player-row {
+                grid-template-columns: 86px minmax(0, 1fr);
+                column-gap: 7px;
+                margin-bottom: 6px;
+            }
+
+            .discard-player-name {
+                font-size: 12px;
+            }
+
+            .discard-nav-btn {
+                flex-basis: 24px;
+                width: 24px;
+                height: 48px;
+                font-size: 18px;
+            }
+
+            .discard-history-card {
+                flex-basis: 40px;
+                width: 40px;
+                height: 50px;
+                font-size: 13px;
+            }
+
+            #openPileHistoryCards[data-player-count="5"] .discard-player-row,
+            #openPileHistoryCards[data-player-count="6"] .discard-player-row {
+                grid-template-columns: 78px minmax(0, 1fr);
+                column-gap: 6px;
+                margin-bottom: 4px;
+            }
+
+            #openPileHistoryCards[data-player-count="5"] .discard-history-card,
+            #openPileHistoryCards[data-player-count="6"] .discard-history-card {
+                flex-basis: 38px;
+                width: 38px;
+                height: 48px;
+                font-size: 12px;
+            }
+
+            #openPileHistoryCards[data-player-count="5"] .discard-nav-btn,
+            #openPileHistoryCards[data-player-count="6"] .discard-nav-btn {
+                flex-basis: 22px;
+                width: 22px;
+                height: 46px;
+                font-size: 17px;
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
+
+async function showOpenPileHistory(event)
 {
     if (event) {
         event.stopPropagation();
@@ -3794,46 +5124,254 @@ function showOpenPileHistory(event)
         document.getElementById(
             "openPileHistoryCards"
         );
+        
 
-    if (!popup || !container) {
+    if (!popup || !container || !state.sessionId) {
         return;
     }
 
-    container.innerHTML = "";
+    ensureDiscardHistoryStyles();
 
-    const cards =
-        (state.openPile || []).slice(0, -1);
+    container.innerHTML = `
+        <div class="discard-history-empty">
+            Loading discarded cards...
+        </div>
+    `;
 
+    popup.style.display = "flex";
 
-    if (cards.length === 0)
-    {
-        container.innerHTML =
-            "<div>No discarded cards</div>";
+    const { data, error } =
+        await supabaseClient.rpc(
+            "crdg_get_current_deal_discards",
+            {
+                p_session_id: state.sessionId
+            }
+        );
+
+    if (error) {
+        console.error(
+            "crdg_get_current_deal_discards ERROR:",
+            error
+        );
+
+        container.innerHTML = `
+            <div class="discard-history-empty">
+                Unable to load discarded cards
+            </div>
+        `;
+
+        return;
     }
-    else
-    {
-        cards.forEach(card =>
+
+    const rows =
+        Array.isArray(data) ? data : [];
+
+    if (rows.length === 0) {
+        container.innerHTML = `
+            <div class="discard-history-empty">
+                No discarded cards in this deal
+            </div>
+        `;
+        return;
+    }
+
+    const playerMap = new Map();
+
+    rows.forEach(row => {
+        if (!playerMap.has(row.user_id)) {
+            playerMap.set(
+                row.user_id,
+                {
+                    userId: row.user_id,
+                    displayName:
+                        row.display_name || "PLAYER",
+                    cards: []
+                }
+            );
+        }
+
+        playerMap
+            .get(row.user_id)
+            .cards
+            .push(row.card);
+    });
+
+    container.innerHTML = "";
+    container.dataset.playerCount = String(playerMap.size);
+
+    // 8 cards per row on normal landscape screens,
+    // 6 on smaller screens. Extra cards use navigation.
+    const pageSize =
+        window.innerWidth <= 700 ? 6 : 8;
+
+    playerMap.forEach(player => {
+        const row =
+            document.createElement("div");
+
+        row.className =
+            "discard-player-row";
+
+        const name =
+            document.createElement("div");
+
+        name.className =
+            "discard-player-name";
+
+        name.textContent =
+            player.displayName;
+
+        row.appendChild(name);
+
+        const strip =
+            document.createElement("div");
+
+        strip.className =
+            "discard-player-strip";
+
+        const prevBtn =
+            document.createElement("button");
+
+        prevBtn.type = "button";
+        prevBtn.className =
+            "discard-nav-btn";
+        prevBtn.textContent = "‹";
+        prevBtn.title = "Previous discarded cards";
+
+        const viewport =
+            document.createElement("div");
+
+        viewport.className =
+            "discard-cards-viewport";
+
+        const cardLine =
+            document.createElement("div");
+
+        cardLine.className =
+            "discard-cards-line";
+
+        viewport.appendChild(cardLine);
+
+        const nextBtn =
+            document.createElement("button");
+
+        nextBtn.type = "button";
+        nextBtn.className =
+            "discard-nav-btn";
+        nextBtn.textContent = "›";
+        nextBtn.title = "Next discarded cards";
+
+        strip.appendChild(prevBtn);
+        strip.appendChild(viewport);
+        strip.appendChild(nextBtn);
+
+        row.appendChild(strip);
+
+        const pageLabel =
+            document.createElement("div");
+
+        pageLabel.className =
+            "discard-page-label";
+
+        row.appendChild(pageLabel);
+
+        container.appendChild(row);
+
+        let page = 0;
+        const pageCount =
+            Math.ceil(
+                player.cards.length /
+                pageSize
+            );
+
+        function renderPage()
         {
-            const cardDiv =
-                document.createElement(
-                    "div"
+            const start =
+                page * pageSize;
+
+            const visibleCards =
+                player.cards.slice(
+                    start,
+                    start + pageSize
                 );
 
-            cardDiv.className =
-                "open-history-card";
+            cardLine.innerHTML = "";
 
-            cardDiv.innerText =
-                card;
+            visibleCards.forEach(card => {
+                const cardDiv =
+                    document.createElement("div");
 
-            container.appendChild(
-                cardDiv
-            );
-        });
-    }
+                cardDiv.className =
+                    "discard-history-card";
 
+                cardDiv.innerText =
+                    card;
 
-    popup.style.display =
-        "flex";
+                if (
+                    card &&
+                    (
+                        card.includes("♥") ||
+                        card.includes("♦")
+                    )
+                ) {
+                    cardDiv.style.color = "#e00000";
+                }
+                else {
+                    cardDiv.style.color = "#111111";
+                }
+
+                cardLine.appendChild(
+                    cardDiv
+                );
+            });
+
+            const showNavigation =
+                pageCount > 1;
+
+            prevBtn.style.display =
+                showNavigation ? "flex" : "none";
+
+            nextBtn.style.display =
+                showNavigation ? "flex" : "none";
+
+            if (showNavigation) {
+                prevBtn.disabled = page <= 0;
+                nextBtn.disabled =
+                    page >= pageCount - 1;
+
+                pageLabel.textContent =
+                    `Page ${page + 1} / ${pageCount}`;
+            }
+            else {
+                pageLabel.textContent = "";
+            }
+        }
+
+        prevBtn.addEventListener(
+            "click",
+            function(e) {
+                e.stopPropagation();
+
+                if (page > 0) {
+                    page--;
+                    renderPage();
+                }
+            }
+        );
+
+        nextBtn.addEventListener(
+            "click",
+            function(e) {
+                e.stopPropagation();
+
+                if (page < pageCount - 1) {
+                    page++;
+                    renderPage();
+                }
+            }
+        );
+
+        renderPage();
+    });
 }
 
 
@@ -4278,162 +5816,443 @@ function updateActionButtons() {
   
 
 
-// =========================
-// LOAD STATE
-
-async function loadGame() {
-
-    if(state.tableCompleted)
-{
-    return;
-}
-
-  const { data, error } = await supabaseClient.rpc(
-    "crdg_get_game_state",
-    {
-      p_session_id: state.sessionId,
-      p_user_id: state.userId
-    }
-  );
-
-  if (error) return console.error(error);
-
-  if (!data) return;
-
-  state.hand = data.hand || [];
-  
-  state.playerStatus = data.player_status;
-  state.participatedInDeal =   data.participated_in_deal === true;
-
-  if (state.playerStatus === "ELIMINATED" && !state.eliminatedRefreshStarted)
-{
-    state.eliminatedRefreshStarted = true;
-
-    setInterval(async () => {
-
-        await loadSessionInfo();
-        await loadPlayers();
-
-    }, 1000);
-}
+function getGroupLayoutStorageKey(dealNo = state.groupsDealNo) {
 
     if (
-        state.playerStatus === "ELIMINATED" &&
-        !state.eliminationScreenShown
-    )
-    {
-        state.eliminationScreenShown = true;
-        handleEliminatedPlayer();
+        !state.sessionId ||
+        !state.userId ||
+        dealNo == null
+    ) {
+        return null;
     }
 
-        // ==========================================
-        // INITIAL HAND ORDER
-        // G1-G4 = USER GROUPS
-        // G5    = UNGROUPED CARDS
-        // ==========================================
-
-        const spades = [];
-        const hearts = [];
-        const diamonds = [];
-        const clubs = [];
-        const jokers = [];
+    return (
+        "crdg_group_layout_" +
+        state.sessionId + "_" +
+        state.userId + "_" +
+        dealNo
+    );
+}
 
 
-        // ------------------------------------------
-        // Separate cards by suit
-        // ------------------------------------------
 
-        state.hand.forEach(card => {
+let declarationBackupSaveTimer = null;
 
-            if (card === "JOKER") {
+function scheduleDeclarationBackupSave() {
 
-                jokers.push(card);
+    // Only save while the declaration countdown is active.
+    if (
+        !state.sessionId ||
+        !state.tableId ||
+        !state.userId ||
+        !state.declarationMode ||
+        !state.declarationTimerStarted ||
+        !state.declarationEndAt ||
+        state.resultWindowOpened ||
+        state.groupsLocked
+    ) {
+        return;
+    }
 
+    const remaining =
+        new Date(state.declarationEndAt).getTime() -
+        Date.now();
+
+    if (remaining <= 0) {
+        return;
+    }
+
+    // Combine rapid card movements into one database update.
+    clearTimeout(declarationBackupSaveTimer);
+
+    declarationBackupSaveTimer = setTimeout(
+        async function () {
+
+            // Recheck before making the request.
+            if (
+                !state.declarationMode ||
+                !state.declarationTimerStarted ||
+                state.resultWindowOpened ||
+                !state.groups
+            ) {
+                return;
             }
-            else if (card.includes("♥")) {
 
-                hearts.push(card);
+            const remainingNow =
+                new Date(state.declarationEndAt).getTime() -
+                Date.now();
 
+            if (remainingNow <= 0) {
+                return;
             }
-            else if (card.includes("♠")) {
 
-                spades.push(card);
+            const groupsToSave =
+                JSON.parse(JSON.stringify(state.groups));
 
+            const { data, error } =
+                await supabaseClient.rpc(
+                    "crdg_save_declaration_backup",
+                    {
+                        p_session_id: state.sessionId,
+                        p_table_id: state.tableId,
+                        p_user_id: state.userId,
+                        p_groups: groupsToSave
+                    }
+                );
+
+            if (error) {
+                console.error(
+                    "Declaration backup save failed:",
+                    error
+                );
+                return;
             }
-            else if (card.includes("♦")) {
 
-                diamonds.push(card);
+            console.log(
+                "Declaration backup saved:",
+                data
+            );
+        },
+        500
+    );
+}
 
-            }
-            else if (card.includes("♣")) {
 
-                clubs.push(card);
+function saveGroupLayout() {
 
+    const key = getGroupLayoutStorageKey();
+
+    if (!key || !Array.isArray(state.groups)) {
+        return;
+    }
+
+    try {
+        localStorage.setItem(
+            key,
+            JSON.stringify(state.groups)
+        );
+    }
+    catch (error) {
+        console.error(
+            "Group layout save failed:",
+            error
+        );
+    }
+
+    // New: save to Supabase only during declaration countdown.
+    scheduleDeclarationBackupSave();
+}
+
+
+
+function arrangeHandBySuit(hand) {
+
+    const hearts = [];
+    const spades = [];
+    const diamonds = [];
+    const clubs = [];
+    const jokers = [];
+
+    hand.forEach(card => {
+
+        if (card === "JOKER") {
+            jokers.push(card);
+        }
+        else if (card.includes("♥")) {
+            hearts.push(card);
+        }
+        else if (card.includes("♠")) {
+            spades.push(card);
+        }
+        else if (card.includes("♦")) {
+            diamonds.push(card);
+        }
+        else if (card.includes("♣")) {
+            clubs.push(card);
+        }
+
+    });
+
+    hearts.sort((a, b) => getRank(a) - getRank(b));
+    spades.sort((a, b) => getRank(a) - getRank(b));
+    diamonds.sort((a, b) => getRank(a) - getRank(b));
+    clubs.sort((a, b) => getRank(a) - getRank(b));
+
+    return [
+        hearts,
+        spades,
+        diamonds,
+        clubs,
+        [],
+        jokers
+    ];
+}
+
+
+function reconcileGroupLayout(previousGroups, currentHand) {
+
+    const groups = Array.from(
+        { length: 6 },
+        (_, index) =>
+            Array.isArray(previousGroups?.[index])
+                ? [...previousGroups[index]]
+                : []
+    );
+
+    // Count each card in the authoritative hand.
+    // Counts handle duplicate cards from two decks.
+    const remaining = new Map();
+
+    currentHand.forEach(card => {
+        remaining.set(
+            card,
+            (remaining.get(card) || 0) + 1
+        );
+    });
+
+    // Preserve the group and order of cards still in the hand.
+    const preservedGroups = groups.map(group => {
+
+        const kept = [];
+
+        group.forEach(card => {
+
+            const count = remaining.get(card) || 0;
+
+            if (count > 0) {
+                kept.push(card);
+                remaining.set(card, count - 1);
             }
 
         });
 
+        return kept;
+    });
 
-        // ------------------------------------------
-        // Sort each suit by rank
-        // A,2,3,4,5,6,7,8,9,10,J,Q,K
-        // ------------------------------------------
+    // Place newly acquired cards into G5.
+    // Keep newly acquired printed jokers in G6.
+    currentHand.forEach(card => {
 
-        hearts.sort(
-            (a, b) => getRank(a) - getRank(b)
+        const count = remaining.get(card) || 0;
+
+        if (count > 0) {
+
+            const targetGroup =
+                card === "JOKER" ? 5 : 4;
+
+            preservedGroups[targetGroup].push(card);
+
+            remaining.set(card, count - 1);
+        }
+
+    });
+
+    return preservedGroups;
+}
+
+
+
+// =========================
+// LOAD STATE
+async function loadGame() {
+
+    if (state.tableCompleted) {
+        return;
+    }
+
+    const { data, error } = await supabaseClient.rpc(
+        "crdg_get_game_state",
+        {
+            p_session_id: state.sessionId,
+            p_user_id: state.userId
+        }
+    );
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    if (!data) {
+        return;
+    }
+
+    // ==========================================
+    // UPDATE PLAYER STATE
+    // ==========================================
+
+    state.hand = data.hand || [];
+    state.playerStatus = data.player_status;
+    state.participatedInDeal =
+        data.participated_in_deal === true;
+
+    // ==========================================
+    // ELIMINATED PLAYER HANDLING
+    // ==========================================
+
+    if (
+        state.playerStatus === "ELIMINATED" &&
+        !state.eliminatedRefreshStarted
+    ) {
+        state.eliminatedRefreshStarted = true;
+
+        setInterval(async () => {
+            await loadSessionInfo();
+            await loadPlayers();
+        }, 1000);
+    }
+
+    if (
+        state.playerStatus === "ELIMINATED" &&
+        !state.eliminationScreenShown
+    ) {
+        stopPointsHeartbeat();
+
+        state.eliminationScreenShown = true;
+        handleEliminatedPlayer();
+    }
+
+    // ==========================================
+    // PRESERVE GROUPS WITHIN THE SAME DEAL
+    // AUTO-ARRANGE ONLY FOR A NEW DEAL
+    // ==========================================
+
+    // Read the authoritative deal number because
+    // loadGame() may run before loadSessionInfo().
+
+    const {
+        data: dealInfo,
+        error: dealInfoError
+    } = await supabaseClient
+        .from("crdg_game_sessions")
+        .select("deal_no")
+        .eq("session_id", state.sessionId)
+        .single();
+
+    if (dealInfoError || !dealInfo) {
+        console.error(
+            "Unable to read current deal number:",
+            dealInfoError
+        );
+        return;
+    }
+
+    const currentDealNo = dealInfo.deal_no;
+
+    // A valid declaration uses 14 cards temporarily, but the selected
+    // declaration card is not part of the player's final 13-card hand.
+    // Remember that card per session/player/deal so refreshes cannot add it back.
+    const declarationStorageKey =
+        "crdg_valid_declaration_" +
+        state.sessionId + "_" +
+        state.userId + "_" +
+        currentDealNo;
+
+    let savedDeclaration = null;
+
+    try {
+        const savedDeclarationText =
+            localStorage.getItem(declarationStorageKey);
+
+        if (savedDeclarationText) {
+            savedDeclaration = JSON.parse(savedDeclarationText);
+        }
+    } catch (declarationStorageError) {
+        console.error(
+            "Unable to restore valid declaration:",
+            declarationStorageError
+        );
+    }
+
+    if (
+        savedDeclaration?.valid === true &&
+        typeof savedDeclaration.card === "string"
+    ) {
+        // Remove exactly one physical occurrence; duplicate cards can exist
+        // because the game uses two decks.
+        const declaredCardIndex = state.hand.indexOf(
+            savedDeclaration.card
         );
 
-        spades.sort(
-            (a, b) => getRank(a) - getRank(b)
+        if (declaredCardIndex >= 0) {
+            state.hand.splice(declaredCardIndex, 1);
+        }
+
+        setGroupsLocked(true);
+    }
+
+    const sameDeal =
+        state.groupsDealNo != null &&
+        String(state.groupsDealNo) ===
+        String(currentDealNo);
+
+    let previousGroups = null;
+
+    // First preference: existing groups in memory.
+    if (
+        sameDeal &&
+        Array.isArray(state.groups) &&
+        state.groups.some(
+            group => Array.isArray(group) &&
+                   group.length > 0
+        )
+    ) {
+        previousGroups = state.groups;
+    }
+
+    // Second preference: saved groups from localStorage.
+    if (!previousGroups) {
+
+        const storageKey =
+            getGroupLayoutStorageKey(currentDealNo);
+
+        if (storageKey) {
+            try {
+                const savedLayout =
+                    localStorage.getItem(storageKey);
+
+                if (savedLayout) {
+                    const parsedLayout =
+                        JSON.parse(savedLayout);
+
+                    if (Array.isArray(parsedLayout)) {
+                        previousGroups = parsedLayout;
+                    }
+                }
+            } catch (storageError) {
+                console.error(
+                    "Unable to restore saved groups:",
+                    storageError
+                );
+            }
+        }
+    }
+
+    // Restore existing groups or arrange a new deal.
+    if (previousGroups) {
+
+        state.groups = reconcileGroupLayout(
+            previousGroups,
+            state.hand
         );
 
-        diamonds.sort(
-            (a, b) => getRank(a) - getRank(b)
-        );
+    } else {
 
-        clubs.sort(
-            (a, b) => getRank(a) - getRank(b)
-        );
+        state.groups = arrangeHandBySuit(state.hand);
 
+    }
 
-        // ------------------------------------------
-        // Initial six-group layout
-        // G1 = Hearts
-        // G2 = Spades
-        // G3 = Diamonds
-        // G4 = Clubs
-        // G5 = empty user-created group
-        // G6 = printed Jokers / overflow
-        // Deal jokers stay with their actual suit.
-        // ------------------------------------------
+    state.groupsDealNo = currentDealNo;
 
-        state.groups = [
-            hearts,        // G1
-            spades,        // G2
-            diamonds,      // G3
-            clubs,         // G4
-            [],            // G5
-            jokers         // G6
-        ];
+    // ==========================================
+    // RESET SELECTION AND RENDER
+    // ==========================================
 
+    clearCardSelection();
+    state.dragCard = null;
 
- //document.getElementById("openVisual").innerText = data.open_pile?.slice(-1)[0] || "-";
-
-//document.getElementById("jokerVisual").innerText = data.joker_card || "-";
-
-  //document.getElementById("stockCard").innerText = data.stock_pile?.length || 0;
-
-    // Clear selection belonging to the old hand
-clearCardSelection();
-state.dragCard = null;
-
-// Display the refreshed database hand
-renderHand();
-
-// Recalculate controls using the refreshed card count
-updateActionButtons();
-
-  
+    renderHand();
+    updateActionButtons();
 }
 
 function getEstimatedTurnServerNow() {
@@ -4525,6 +6344,330 @@ function getRank(card){
 
 }
 
+
+// ==================================================
+// MANUAL GAME REFRESH / RECONNECT
+// ==================================================
+
+let refreshInProgress = false;
+
+// ==================================================
+// ==================================================
+// NETWORK / SUPABASE AVAILABILITY MONITOR
+// ==================================================
+let networkOffline = false;
+let networkMonitorHandle = null;
+
+async function checkSupabaseAvailability() {
+
+    if (!navigator.onLine) {
+        return false;
+    }
+
+    try {
+
+        const controller = new AbortController();
+
+        const timeoutHandle = setTimeout(
+            () => controller.abort(),
+            5000
+        );
+
+        // Any HTTP response means Supabase is reachable.
+        // Only a real fetch/network failure is treated as offline.
+        await fetch(
+            SUPABASE_URL + "/rest/v1/",
+            {
+                method: "GET",
+                cache: "no-store",
+                signal: controller.signal
+            }
+        );
+
+        clearTimeout(timeoutHandle);
+
+        return true;
+
+    } catch (error) {
+
+        console.warn(
+            "SUPABASE AVAILABILITY CHECK FAILED:",
+            error?.message || error
+        );
+
+        return false;
+    }
+}
+
+async function checkNetworkAndReconnect() {
+
+    if (refreshInProgress) {
+        return;
+    }
+
+    const available = await checkSupabaseAvailability();
+
+    // Connection unavailable: remember the state and wait.
+    if (!available) {
+
+        if (!networkOffline) {
+            networkOffline = true;
+            console.warn(
+                "NETWORK OFFLINE: waiting for connection..."
+            );
+        }
+
+        return;
+    }
+
+    // Connection has returned after an offline period.
+    if (networkOffline) {
+
+    
+
+        try {
+
+            const refreshed = await refreshGame();
+
+            if (!refreshed) {
+                throw new Error(
+                    "Game refresh did not complete successfully."
+                );
+            }
+
+            networkOffline = false;
+
+            
+
+        } catch (error) {
+
+            console.error(
+                "NETWORK RESTORE REFRESH FAILED:",
+                error
+            );
+
+            // Keep true so the next 7-second check retries.
+            networkOffline = true;
+        }
+    }
+}
+
+function startNetworkMonitor() {
+
+    if (networkMonitorHandle) {
+        return;
+    }
+
+    
+
+    // Initial check, then every 7 seconds.
+    checkNetworkAndReconnect();
+
+    networkMonitorHandle = setInterval(
+        checkNetworkAndReconnect,
+        7000
+    );
+}
+
+// POINTS : PLAYER HEARTBEAT
+// ==================================================
+
+let pointsHeartbeatHandle = null;
+let pointsHeartbeatInProgress = false;
+
+async function sendPointsHeartbeat() {
+
+    // POINTS ONLY
+    if (
+        typeof GAME_TYPE === "undefined" ||
+        GAME_TYPE !== "POINTS"
+    ) {
+        return;
+    }
+
+    // No heartbeat after table/game is over.
+    if (
+        state.tableCompleted ||
+        state.isEliminated ||
+        state.playerStatus === "ELIMINATED"
+    ) {
+        return;
+    }
+
+    // During an actual network outage, let the existing
+    // 7-second network monitor handle recovery.
+    if (typeof networkOffline !== "undefined" && networkOffline) {
+        return;
+    }
+
+    if (
+        !state.tableId ||
+        !state.userId
+    ) {
+        return;
+    }
+
+    if (pointsHeartbeatInProgress) {
+        return;
+    }
+
+    pointsHeartbeatInProgress = true;
+
+    try {
+
+        const { data, error } =
+            await supabaseClient.rpc(
+                "crdgp_update_heartbeat",
+                {
+                    p_user_id: state.userId,
+                    p_table_id: state.tableId
+                }
+            );
+
+        if (error) {
+
+            console.warn(
+                "POINTS HEARTBEAT ERROR:",
+                error
+            );
+
+            return;
+        }
+
+        if (data !== true) {
+
+            console.warn(
+                "POINTS HEARTBEAT: player row not updated.",
+                {
+                    tableId: state.tableId,
+                    userId: state.userId,
+                    result: data
+                }
+            );
+
+            return;
+        }
+
+        
+
+    }
+    catch (error) {
+
+        console.warn(
+            "POINTS HEARTBEAT EXCEPTION:",
+            error
+        );
+
+    }
+    finally {
+
+        pointsHeartbeatInProgress = false;
+    }
+}
+
+
+function stopPointsHeartbeat() {
+
+    if (pointsHeartbeatHandle) {
+
+        clearInterval(
+            pointsHeartbeatHandle
+        );
+
+        pointsHeartbeatHandle = null;
+    }
+}
+
+
+function startPointsHeartbeat() {
+
+    // Always prevent duplicate heartbeat timers.
+    stopPointsHeartbeat();
+
+    // POINTS ONLY.
+    if (
+        typeof GAME_TYPE === "undefined" ||
+        GAME_TYPE !== "POINTS"
+    ) {
+        return;
+    }
+
+    
+
+    // Send one immediately, then every 3 seconds.
+    sendPointsHeartbeat();
+
+    pointsHeartbeatHandle =
+        setInterval(
+            sendPointsHeartbeat,
+            3000
+        );
+}
+
+
+async function refreshGame() {
+
+    if (refreshInProgress) {
+        return;
+    }
+
+    refreshInProgress = true;
+
+    try {
+
+        // Reuse the existing JOIN / RECONNECT flow
+        await joinTable();
+
+        // If reconnect returned us to the existing game,
+        // explicitly reload the authoritative server state.
+        if (
+            state.sessionId &&
+            state.userId &&
+            gameEntered
+        ) {
+
+            console.log(
+                "REFRESH: Reloading server game state..."
+            );
+
+            await loadGame();
+
+            await loadSessionInfo();
+
+            await loadPlayers();
+
+            renderHand();
+
+            calculateDealScore();
+
+            
+
+            return true;
+        }
+
+        return false;
+
+    }
+    catch (error) {
+
+        console.error(
+            "MANUAL GAME REFRESH ERROR:",
+            error
+        );
+
+        return false;
+
+    }
+    finally {
+
+        refreshInProgress = false;
+
+        console.log(
+            "MANUAL GAME REFRESH END"
+        );
+    }
+}
+
 // =========================
 // JOIN TABLE (FIXED)
 // =========================
@@ -4533,66 +6676,112 @@ function getRank(card){
 // =========================
 async function joinTable() {
 
-    // =================================================
-    // Get values
-    //
-    // New Friends flow:
-    // values come from localStorage
-    //
-    // Old/manual flow:
-    // values come from the existing HTML inputs
-    // =================================================
-
-    let tableId =
-        localStorage.getItem("crdg_table");
-
-    let nickname =
-        localStorage.getItem("crdg_nickname");
-
-
-    // -----------------------------------------------
-    // If not coming from tablepage.html,
-    // use existing Join screen fields
-    // -----------------------------------------------
+    let tableId = localStorage.getItem("crdg_table");
+    let nickname = localStorage.getItem("crdg_nickname");
 
     if (!tableId) {
-
-        tableId =
-            document.getElementById("tableIdInput").value;
+        tableId = document.getElementById("tableIdInput").value;
     }
 
     if (!nickname) {
-
-        nickname =
-            document.getElementById("nickname").value;
+        nickname = document.getElementById("nickname").value;
     }
 
-
-    tableId =
-        parseInt(tableId);
-
-    nickname =
-        (nickname || "").trim();
-
-
-    // -----------------------------------------------
-    // Existing static password
-    // -----------------------------------------------
+    tableId = parseInt(tableId);
+    nickname = (nickname || "").trim();
 
     const password = "5E2D";
 
+    // --------------------------------------------------
+    // LOGIN SESSION
+    // --------------------------------------------------
 
-    // -----------------------------------------------
-    // Existing UUID identity
-    // -----------------------------------------------
+    const sessionToken =
+        localStorage.getItem("crdgn_session_token");
 
-    const userId =
-        savedUserId;
+    const gameType = (
+        localStorage.getItem("crdg_game_type") || "FRIENDS"
+    ).toUpperCase();
 
+    if (!sessionToken) {
 
-    // -----------------------------------------------
-    // Basic validation
-    // -----------------------------------------------
+        alert("Please login before joining a Friends game.");
+
+        return;
+    }
+
+    // --------------------------------------------------
+    // GET / CREATE PERMANENT GAME USER ID
+    // --------------------------------------------------
+
+    const { data: mappingData, error: mappingError } =
+        await supabaseClient.rpc(
+            "crdgn_get_or_create_game_user_id",
+            {
+                p_session_token: sessionToken,
+                p_game_type: gameType
+            }
+        );
+
+    const mappingResult =
+        Array.isArray(mappingData)
+            ? mappingData[0]
+            : mappingData;
+
+    if (mappingError) {
+
+        console.error(
+            "GAME USER MAPPING ERROR:",
+            mappingError
+        );
+
+        alert(
+            mappingError.message ||
+            "Unable to identify game user."
+        );
+
+        return;
+    }
+
+    if (
+        !mappingResult ||
+        mappingResult.success !== true ||
+        !mappingResult.game_user_id
+    ) {
+
+        console.error(
+            "INVALID GAME USER MAPPING:",
+            mappingResult
+        );
+
+        alert(
+            mappingResult?.message ||
+            "Unable to identify game user."
+        );
+
+        return;
+    }
+
+    // --------------------------------------------------
+    // REGISTERED ACCOUNT USER ID
+    // --------------------------------------------------
+
+    const userId = mappingResult.game_user_id;
+
+    state.registeredUserId = mappingResult.user_id;
+
+    console.log(
+        "FRIENDS ACCOUNT MAPPING:",
+        {
+            registeredUserId: state.registeredUserId,
+            gameUserId: userId,
+            gameType: gameType
+        }
+    );
+
+    // --------------------------------------------------
+    // VALIDATE TABLE / NICKNAME
+    // --------------------------------------------------
 
     if (
         !tableId ||
@@ -4601,20 +6790,20 @@ async function joinTable() {
     ) {
 
         alert("Invalid Table ID");
+
         return;
     }
-
 
     if (!nickname) {
 
         alert("Please enter player name");
+
         return;
     }
 
-
-    // =================================================
-    // JOIN RPC
-    // =================================================
+    // --------------------------------------------------
+    // JOIN / RECONNECT EXISTING PLAYER
+    // --------------------------------------------------
 
     const { data, error } =
         await supabaseClient.rpc(
@@ -4627,59 +6816,64 @@ async function joinTable() {
             }
         );
 
-
     const joinResult =
         data?.[0];
 
-
-    // -----------------------------------------------
-    // RPC error
-    // -----------------------------------------------
+    // --------------------------------------------------
+    // JOIN ERROR
+    // --------------------------------------------------
 
     if (error) {
 
         console.error(
-            "Join error:",
+            "JOIN TABLE ERROR:",
             error
         );
 
         alert(
             error.message ||
-            "Join failed"
+            "Unable to join table."
         );
 
         return;
     }
 
-
     if (!joinResult) {
 
-        alert("Join failed");
+        console.error(
+            "JOIN TABLE RETURNED NO RESULT"
+        );
+
+        alert("Join failed.");
+
         return;
     }
 
-
-    // -----------------------------------------------
-    // Check result
-    // -----------------------------------------------
+    // --------------------------------------------------
+    // ACCEPT ONLY SUCCESS / RECONNECTED
+    // --------------------------------------------------
 
     if (
         joinResult.status !== "success" &&
         joinResult.status !== "reconnected"
     ) {
 
+        console.error(
+            "JOIN TABLE FAILED:",
+            joinResult
+        );
+
         alert(
             joinResult.message ||
-            "Unable to join table"
+            "Unable to join table."
         );
 
         return;
     }
 
-
-    // =================================================
-    // SAVE STATE
-    // =================================================
+    // --------------------------------------------------
+    // SAVE PLAYER STATE
+    // --------------------------------------------------
 
     state.userId =
         joinResult.user_id;
@@ -4696,7 +6890,6 @@ async function joinTable() {
     state.fixedSeatNo =
         Number(joinResult.fixed_seat_no);
 
-
     localStorage.setItem(
         "crdg_user_id",
         state.userId
@@ -4712,96 +6905,54 @@ async function joinTable() {
         nickname
     );
 
+// --------------------------------------------------
+// CHECK RECONNECT
+// --------------------------------------------------
 
-    // =================================================
-    // RECONNECT
-    // =================================================
+const isReconnect =
+    joinResult.status === "reconnected";
 
-    const isReconnect =
-        joinResult.status === "reconnected";
+// ==================================================
+// RECONNECT EXISTING ACTIVE GAME
+// ==================================================
 
+if (
+    isReconnect &&
+    joinResult.session_id
+) {
 
-    if (
-        isReconnect &&
-        joinResult.session_id
-    ) {
+    state.sessionId =
+        Number(joinResult.session_id);
 
-        state.sessionId =
-            Number(joinResult.session_id);
-
-        state.joined = true;
-
-
-        document
-            .getElementById("joinScreen")
-            .style.display = "none";
-
-
-        document
-            .getElementById("lobbyScreen")
-            .style.display = "none";
-
-
-        document
-            .getElementById("app")
-            .style.display = "block";
-
-
-        await loadGame();
-        await loadSessionInfo();
-        await loadPlayers();
-
-        return;
-    }
-
-
-    // =================================================
-    // NORMAL LOBBY
-    // =================================================
+    localStorage.setItem(
+        "crdg_session_id",
+        String(state.sessionId)
+    );
 
     state.joined = true;
 
-
+    // Hide join/lobby screens
     document
         .getElementById("joinScreen")
         .classList.add("hidden");
 
-
     document
         .getElementById("lobbyScreen")
-        .classList.remove("hidden");
+        .classList.add("hidden");
 
+    // Normal reconnect:
+    // initialize the game.
+    //
+    // Manual refresh:
+    // refreshGame() will reload the state itself.
+    if (!refreshInProgress) {
 
-    document
-        .getElementById("lobbyTableId")
-        .innerText = tableId;
+        await enterGame();
 
+    }
 
-    document
-        .getElementById("lobbySeat")
-        .innerText =
-            state.seatNo;
-
-
-    // -----------------------------------------------
-    // Existing lobby flow
-    // -----------------------------------------------
-
-    await postJoinFlow();
-
-    loadLobbyState();
-
-
-    clearInterval(
-        state.lobbyTimerHandle
-    );
-
-
-    state.lobbyTimerHandle =
-        setInterval(
-            loadLobbyState,
-            1000
-        );
+    return;
+}
 }
 
 function startTurnTimer() {
@@ -5034,6 +7185,33 @@ async function loadPlayers(playersData = null) {
 
     if (!data) return;
 
+            // =================================================
+        // UPDATE TOP BAR POT
+        // Friends Rummy entry fee = 80 per player
+        // =================================================
+
+        const potAmount =
+            (Array.isArray(data) ? data.length : 0) * 80;
+
+        const potEl =
+            document.getElementById("topPot");
+
+        if (potEl) {
+            potEl.innerText = potAmount;
+        }
+
+
+        const playerCountEl =
+            document.getElementById("topPlayerCount");
+
+        if (playerCountEl) {
+            playerCountEl.innerText = data.length;
+        }
+
+
+
+
+
     for (let i = 1; i <= 5; i++) {
 
         document.getElementById(
@@ -5177,7 +7355,7 @@ async function loadPlayers(playersData = null) {
         ${statusHtml}
         `;
     });
-    document.getElementById("dealerName").textContent = dlr_name;
+   
     let myIcons = "";
 
     if (
@@ -5193,8 +7371,23 @@ async function loadPlayers(playersData = null) {
         `You ${myIcons}`;
 
 
-        let myScoreHtml =
-            `Score : ${state.myScore || 0}`;
+
+        // =====================================================
+// MY SCORE DISPLAY
+// POINTS = no cumulative Score display
+// POOL   = keep cumulative Score display
+// =====================================================
+
+        let myScoreHtml = "";
+
+        if (
+            typeof GAME_TYPE === "undefined" ||
+            GAME_TYPE !== "POINTS"
+        )
+        {
+            myScoreHtml =
+                `Score : ${state.myScore || 0}`;
+        }
 
         if(state.playerStatus === "ELIMINATED")
         {
@@ -5473,6 +7666,14 @@ const isHost =
 // HOST START GAME
 // =====================================================
 
+// =====================================================
+// HOST START FRIENDS GAME
+// =====================================================
+
+// =====================================================
+// HOST START GAME
+// =====================================================
+
 async function hostStartGame() {
 
     // -----------------------------------------------
@@ -5484,49 +7685,209 @@ async function hostStartGame() {
             "btnStartGame"
         );
 
-
     if (!button) {
         return;
     }
 
-
     if (button.disabled) {
         return;
     }
-
 
     button.disabled = true;
 
     button.innerText =
         "STARTING...";
 
-
     try {
 
-        const { data, error } =
-            await supabaseClient.rpc(
-                "crdg_start_game",
+        // =================================================
+        // REGISTERED ACCOUNT SESSION
+        // =================================================
+
+        const sessionToken =
+            localStorage.getItem(
+                "crdgn_session_token"
+            );
+
+        if (!sessionToken) {
+
+            alert(
+                "Your login session is not available. Please login again."
+            );
+
+            button.disabled = false;
+
+            button.innerText =
+                "▶ START GAME";
+
+            return;
+        }
+
+
+        // =================================================
+        // DETERMINE GAME TYPE
+        // =================================================
+
+        const gameType =
+            (
+                localStorage.getItem(
+                    "crdg_game_type"
+                ) || "FRIENDS"
+            ).toUpperCase();
+
+
+        // =================================================
+        // CRDGP START
+        // POINTS ONLY
+        // =================================================
+
+        if (gameType === "POINTS") {
+
+            const {
+                data,
+                error
+            } = await supabaseClient.rpc(
+                "crdgp_start_points_game",
                 {
-                    p_table_id: state.tableId,
-                    p_user_id: state.userId
+                    p_session_token:
+                        sessionToken,
+
+                    p_table_id:
+                        state.tableId
                 }
             );
 
 
-        // -------------------------------------------
-        // ERROR
-        // -------------------------------------------
+            // =================================================
+            // DATABASE ERROR
+            // =================================================
+
+            if (error) {
+
+                console.error(
+                    "POINTS start game error:",
+                    error
+                );
+
+                alert(
+                    error.message ||
+                    "Unable to start POINTS game."
+                );
+
+                button.disabled = false;
+
+                button.innerText =
+                    "▶ START GAME";
+
+                return;
+            }
+
+
+            // =================================================
+            // READ RESULT
+            // =================================================
+
+            const result =
+                Array.isArray(data)
+                    ? data[0]
+                    : data;
+
+
+            // =================================================
+            // POINTS START REJECTED
+            // =================================================
+
+            if (
+                !result ||
+                result.status !== "success" ||
+                !result.session_id
+            ) {
+
+                console.error(
+                    "POINTS start game rejected:",
+                    result
+                );
+
+                alert(
+                    result?.message ||
+                    "Unable to start POINTS game."
+                );
+
+                button.disabled = false;
+
+                button.innerText =
+                    "▶ START GAME";
+
+                return;
+            }
+
+
+            // =================================================
+            // POINTS START SUCCESS
+            // =================================================
+
+            console.log(
+                "POINTS GAME STARTED:",
+                {
+                    session_id:
+                        result.session_id,
+
+                    status:
+                        result.status,
+
+                    message:
+                        result.message
+                }
+            );
+
+
+            state.sessionId =
+                result.session_id;
+
+
+            await enterGame();
+
+            return;
+        }
+
+
+        // =================================================
+        // EXISTING FRIENDS START
+        // =================================================
+        //
+        // IMPORTANT:
+        // Existing Friends behavior is unchanged.
+        // =================================================
+
+        const {
+            data,
+            error
+        } = await supabaseClient.rpc(
+            "crdgn_start_friends_game",
+            {
+                p_session_token:
+                    sessionToken,
+
+                p_table_id:
+                    state.tableId
+            }
+        );
+
+
+        // =================================================
+        // DATABASE ERROR
+        // =================================================
 
         if (error) {
 
             console.error(
-                "Host start game error:",
+                "Friends start game error:",
                 error
             );
 
             alert(
                 error.message ||
-                "Unable to start game"
+                "Unable to start Friends game."
             );
 
             button.disabled = false;
@@ -5538,17 +7899,34 @@ async function hostStartGame() {
         }
 
 
-        // -------------------------------------------
-        // NO SESSION
-        // -------------------------------------------
+        // =================================================
+        // READ RESULT
+        // =================================================
+
+        const result =
+            Array.isArray(data)
+                ? data[0]
+                : data;
+
+
+        // =================================================
+        // FRIENDS START REJECTED
+        // =================================================
 
         if (
-            !data ||
-            !data.length
+            !result ||
+            result.success !== true ||
+            !result.session_id
         ) {
 
+            console.error(
+                "Friends start game rejected:",
+                result
+            );
+
             alert(
-                "Unable to start game"
+                result?.message ||
+                "Unable to start Friends game."
             );
 
             button.disabled = false;
@@ -5560,12 +7938,24 @@ async function hostStartGame() {
         }
 
 
-        // -------------------------------------------
-        // GAME STARTED
-        // -------------------------------------------
+        // =================================================
+        // FRIENDS START SUCCESS
+        // =================================================
+
+        console.log(
+            "FRIENDS GAME STARTED:",
+            {
+                session_id:
+                    result.session_id,
+
+                charged_players:
+                    result.charged_players
+            }
+        );
+
 
         state.sessionId =
-            data[0].session_id;
+            result.session_id;
 
 
         await enterGame();
@@ -5579,7 +7969,8 @@ async function hostStartGame() {
         );
 
         alert(
-            "Unable to start game"
+            error.message ||
+            "Unable to start game."
         );
 
         button.disabled = false;
@@ -5595,7 +7986,7 @@ async function hostStartGame() {
 async function enterGame(){
 
   if (gameEntered) return;
-   gameEntered = true;
+  gameEntered = true;
 
   clearInterval(state.lobbyTimerHandle);
 
@@ -5611,62 +8002,190 @@ async function enterGame(){
     .getElementById("tableIdDisplay")
     .innerText = state.tableId;
 
-    await loadGame();
-   
-    await loadSessionInfo();
+  await loadTopGameType();
 
-    await loadPlayers();
-    renderHand();
-    calculateDealScore();
+  await loadGame();
 
-    subscribeRealtime();
+  await loadSessionInfo();
 
+  await loadPlayers();
+
+  startTurnTimer();
+  updateActionButtons();
+
+  renderHand();
+
+  calculateDealScore();
+
+  // NEW: save / refresh active game pointer
+    if (!state.activeGameRegistered) {
+        await setActiveGame();
+    }
+
+  subscribeRealtime();
+
+  // POINTS ONLY: maintain server heartbeat.
+  startPointsHeartbeat();
+
+  // Automatically reconnect and refresh when network/Supabase returns.
+  startNetworkMonitor();
+}
+
+
+async function setActiveGame() {
+
+
+  const sessionToken =
+    localStorage.getItem("crdgn_session_token");
+
+  if (!sessionToken) {
+    console.warn("Active game: session token not found");
+    return;
+  }
+
+
+  console.log("ACTIVE GAME ID CHECK:", {
+    registeredUserId: state.registeredUserId,
+    gameUserId: state.userId,
+    tableId: state.tableId,
+    sessionId: state.sessionId
+});
+
+  const { data, error } =
+    await supabaseClient.rpc(
+      "crdgn_set_active_game",
+      {
+        p_session_token: sessionToken,
+        p_game_user_id: state.userId,
+        p_table_id: state.tableId,
+        p_session_id: state.sessionId
+      }
+    );
+
+  if (error) {
+    console.error(
+      "Active game save failed:",
+      error
+    );
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    console.warn("Active game: no response");
+    return;
+  }
+
+  const result = data[0];
+
+  if (!result.success) {
+    console.warn(
+      "Active game not saved:",
+      result.message
+    );
+    return;
+  }
+
+  console.log(
+    "Active game saved:",
+    result
+  );
+  state.activeGameRegistered = true;
 }
 
 
 async function startGame() {
 
-    const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_start_game",
-            {
-                p_table_id: state.tableId,
-                p_user_id: state.userId
-            }
+    const sessionToken =
+        localStorage.getItem(
+            "crdgn_session_token"
         );
+
+
+    if (!sessionToken) {
+
+        console.error(
+            "Friends login session missing."
+        );
+
+        return false;
+    }
+
+
+    const {
+        data,
+        error
+    } = await supabaseClient.rpc(
+        "crdgn_start_friends_game",
+        {
+            p_session_token:
+                sessionToken,
+
+            p_table_id:
+                state.tableId
+        }
+    );
 
 
     if (error) {
 
         console.error(
-            "Start game error:",
+            "Friends automatic start error:",
             error
         );
 
         alert(
             error.message ||
-            "Unable to start game"
+            "Unable to start Friends game."
         );
 
         return false;
     }
 
 
-    if (!data || !data.length) {
+    const result =
+        Array.isArray(data)
+            ? data[0]
+            : data;
+
+
+    if (
+        !result ||
+        result.success !== true ||
+        !result.session_id
+    ) {
+
+        console.error(
+            "Friends automatic start rejected:",
+            result
+        );
 
         alert(
-            "Unable to start game"
+            result?.message ||
+            "Unable to start Friends game."
         );
 
         return false;
     }
+
+
+    console.log(
+        "FRIENDS AUTO START SUCCESS:",
+        {
+            session_id:
+                result.session_id,
+
+            charged_players:
+                result.charged_players
+        }
+    );
 
 
     state.sessionId =
-        data[0].session_id;
+        result.session_id;
 
 
     await enterGame();
+
 
     return true;
 }
@@ -5674,15 +8193,12 @@ async function startGame() {
 
 
 
+
 async function declareGame() {
 
-  if(state.declarationMode){
-
-    return;
-   }
-
-
-   
+    if (state.declarationMode || state.groupsLocked) {
+        return;
+    }
 
     if (
         Number(state.seatNo) !==
@@ -5710,109 +8226,153 @@ async function declareGame() {
         return;
     }
 
-    // existing declaration code...
-
-
-
-
     const totalCards =
         state.groups.reduce(
             (a, g) => a + g.length,
             0
         );
 
-    if(totalCards !== 14){
-
-        alert(
-            "You must have 14 cards to declare"
-        );
-
+    if (totalCards !== 14) {
+        alert("You must have 14 cards to declare");
         return;
     }
 
     const declareSelection = getSingleSelectedCard();
 
-    if(!declareSelection){
-
-        if (state.selectedCards && state.selectedCards.length > 1) {
-            alert("Please select only one card before declaration.");
-        } else {
-            alert("Please select one card before declaration");
-        }
-
+    if (!declareSelection) {
+        alert("Please select one card before declaration.");
         return;
     }
 
-    if(!confirm( "Confirm Declaration?" )){
+
+    if (!confirm(
+        "Confirm Declaration?\n\n" 
+    )) {
         return;
     }
 
     const declareCard = singleSelectedCard.card;
 
-    // Create copy of groups
+    // Create a copy of the groups.
+    const groupsForDeclaration =
+        JSON.parse(JSON.stringify(state.groups));
 
-      const groupsForDeclaration =
-          JSON.parse(
-              JSON.stringify(state.groups)
-          );
+    // Remove the selected declaration card from the copy.
+    groupsForDeclaration[
+        declareSelection.group
+    ].splice(
+        declareSelection.index,
+        1
+    );
 
-      // Remove selected card
+    const {
+        data: scoreData,
+        error: scoreError
+    } = await supabaseClient.rpc(
+        "crdg_calculate_running_score",
+        {
+            p_groups: groupsForDeclaration,
+            p_joker_card: state.jokerCard
+        }
+    );
 
-      groupsForDeclaration[
-          declareSelection.group
-      ].splice(
-          declareSelection.index,
-          1
-      );
+    if (scoreError) {
+        console.error(scoreError);
+        return;
+    }
 
-          
-        const { data, error } =
-        await supabaseClient.rpc(
-            "crdg_calculate_running_score",
+    const declarationScore = Number(scoreData || 0);
+
+    if (declarationScore === 0) {
+
+        alert("VALID DECLARATION");
+
+        const {
+            data: declarationData,
+            error: declarationError
+        } = await supabaseClient.rpc(
+            "crdg_submit_declaration",
             {
+                p_session_id: state.sessionId,
+                p_table_id: state.tableId,
+                p_user_id: state.userId,
+                p_declare_card: declareCard,
                 p_groups: groupsForDeclaration,
                 p_joker_card: state.jokerCard
             }
         );
 
-    if(error){
+        if (declarationError) {
+            console.error(declarationError);
+            return;
+        }
 
-        console.error(error);
+        if (declarationData?.[0]?.status === "valid") {
 
-        return;
-    }
+            // Finalize the valid declarer's score immediately.
+            // This does not start Observation; the database will
+            // open results after all remaining players finish their
+            // declaration phase.
+            const {
+                data: finalGroupsData,
+                error: finalGroupsError
+            } = await supabaseClient.rpc(
+                "crdg_submit_final_groups",
+                {
+                    p_session_id: state.sessionId,
+                    p_table_id: state.tableId,
+                    p_user_id: state.userId,
+                    p_groups: groupsForDeclaration,
+                    p_joker_card: state.jokerCard
+                }
+            );
 
-    const declarationScore = Number(data || 0);
-    const declarationStatus =  data?.[0]?.status;
-
-    //const declarationScore =  0;
-
-    if(declarationScore === 0){
-
-          alert(
-              "VALID DECLARATION"
-          );
-
-
-            const declareCard = singleSelectedCard.card;
-
-            const { data, error } =
-                await supabaseClient.rpc(
-                    "crdg_submit_declaration",
-                    {
-                        p_session_id: state.sessionId,
-                        p_table_id: state.tableId,
-                        p_user_id: state.userId,
-                        p_declare_card: declareCard,
-                        p_groups: groupsForDeclaration,
-                        p_joker_card: state.jokerCard
-                    }
+            if (finalGroupsError) {
+                console.error(
+                    "Valid declarer finalization failed:",
+                    finalGroupsError
                 );
+            } else {
+                console.log(
+                    "Valid declarer finalized immediately:",
+                    finalGroupsData
+                );
+            }
 
-            if(data?.[0]?.status === "valid")
-            {
-            // NOW remove from actual UI
+            // Persist the successful declaration card for this deal.
+            // loadGame() uses this marker to keep the 14th card out after
+            // manual refresh, automatic refresh, or reconnect.
+            try {
+                const declarationStorageKey =
+                    "crdg_valid_declaration_" +
+                    state.sessionId + "_" +
+                    state.userId + "_" +
+                    state.groupsDealNo;
 
+                localStorage.setItem(
+                    declarationStorageKey,
+                    JSON.stringify({
+                        valid: true,
+                        card: declareCard
+                    })
+                );
+            } catch (declarationStorageError) {
+                console.error(
+                    "Unable to save valid declaration:",
+                    declarationStorageError
+                );
+            }
+
+            // Lock this player's groups after server confirmation.
+            setGroupsLocked(true);
+
+            // Remove the declaration card from the actual UI and hand.
+            const declaredHandIndex = state.hand.indexOf(declareCard);
+            if (declaredHandIndex >= 0) {
+                state.hand.splice(declaredHandIndex, 1);
+            }
+
+            // Remove the declaration card from the actual UI.
             state.groups[
                 declareSelection.group
             ].splice(
@@ -5824,51 +8384,58 @@ async function declareGame() {
 
             renderHand();
 
-            calculateDealScore();
-        }
+            await calculateDealScore();
 
-            if(error){
+            // Do not run the declarer's declaration countdown.
+            state.declarationMode = true;
+            state.declarationTimerStarted = true;
 
-                console.error(error);
-
-                return;
+            if (state.declarationTimerInterval) {
+                clearInterval(state.declarationTimerInterval);
+                state.declarationTimerInterval = null;
             }
 
+            const declarationTimerLabel =
+                document.getElementById("declarationTimer");
+            if (declarationTimerLabel) {
+                declarationTimerLabel.innerText = "";
+            }
 
-      }
-      else{
+            showDeclarerWaitingWindow();
+        }
 
-         alert("OOPS...! INVALID DECLARATION");
+    } else {
 
+        alert("OOPS...! INVALID DECLARATION");
 
         state.isInvalidDeclaration = true;
         state.isDropped = true;
         state.dropType = "INVALID_DECLARE";
-        const declareCard = singleSelectedCard.card;
 
-        const { data, error } =
-            await supabaseClient.rpc(
-                "crdg_submit_declaration",
-                {
-                    p_session_id: state.sessionId,
-                    p_table_id: state.tableId,
-                    p_user_id: state.userId,
-                    p_declare_card: declareCard,
-                    p_groups: groupsForDeclaration,
-                    p_joker_card: state.jokerCard
-                }
-            );
+        const {
+            data,
+            error
+        } = await supabaseClient.rpc(
+            "crdg_submit_declaration",
+            {
+                p_session_id: state.sessionId,
+                p_table_id: state.tableId,
+                p_user_id: state.userId,
+                p_declare_card: declareCard,
+                p_groups: groupsForDeclaration,
+                p_joker_card: state.jokerCard
+            }
+        );
 
-            renderHand();
-
-        if(error){
+        if (error) {
             console.error(error);
             return;
         }
+
+        renderHand();
     }
-
-
 }
+
 
 
 
@@ -5884,14 +8451,16 @@ async function calculateDealScore() {
         );
 
     if (error) {
-
         console.error(error);
-
-        return;
+        return null;
     }
 
+    const score = Number(data || 0);
+
     document.getElementById("dealScore").innerText =
-        "Deal Score : " + (data || 0);
+        "Deal Score : " + score;
+
+    return score;
 }
 
 function getCardValue(card) {
@@ -6029,7 +8598,15 @@ async function loadDealResults()
         <th>Player</th>
         <th>Cards</th>
         <th>Score</th>
-        <th>Total</th>
+                    <th>
+                    ${
+                        typeof GAME_TYPE !== "undefined" &&
+                        GAME_TYPE === "POINTS"
+                            ? "Win/Loss"
+                            : "Total"
+                    }
+                    </th>
+
         <th>Status</th>
         </tr>
         </thead>
@@ -6046,9 +8623,91 @@ async function loadDealResults()
             "resultTableBody"
         );
 
-    data.forEach(row => {
+        // =====================================================
+        // POINTS MULTIPLIER
+        // Read through SECURITY DEFINER RPC so RLS does not block browser access.
+        let pointsMultiplier = 1;
+        let pointsTableId = null;
+
+        if (typeof GAME_TYPE !== "undefined" && GAME_TYPE === "POINTS") {
+            const { data: sessionInfo, error: sessionInfoError } =
+                await supabaseClient
+                    .from("crdg_game_sessions")
+                    .select("table_id")
+                    .eq("session_id", state.sessionId)
+                    .maybeSingle();
+
+            if (sessionInfoError || !sessionInfo) {
+                console.error("POINTS session table lookup failed:", sessionInfoError || state.sessionId);
+                return;
+            }
+
+            pointsTableId = Number(sessionInfo.table_id);
+            console.log("POINTS result table ID:", pointsTableId);
+
+            const { data: multiplierData, error: multiplierError } =
+                await supabaseClient.rpc("crdgp_get_multiplier", {
+                    p_table_id: pointsTableId
+                });
+
+            if (multiplierError) {
+                console.error("POINTS multiplier RPC failed:", multiplierError);
+                return;
+            }
+
+            pointsMultiplier = Number(multiplierData) || 1;
+            console.log("POINTS result multiplier:", pointsMultiplier);
+        }
+
+
+        data.forEach(row => {
 
         let showCards = true;
+
+                // =====================================================
+        // POINTS WIN / LOSS
+        // =====================================================
+
+        let pointsWinLoss = null;
+
+        if (
+            typeof GAME_TYPE !== "undefined" &&
+            GAME_TYPE === "POINTS"
+        ) {
+            const dealScore =
+                Number(row.current_deal_score) || 0;
+
+            const multiplier =
+                Number(pointsMultiplier) || 1;
+
+            if (dealScore === 0) {
+
+                // Winner receives the total loss points
+                // multiplied by the table multiplier.
+
+                const totalLoserScore =
+                    data.reduce(
+                        (sum, player) =>
+                            sum +
+                            (
+                                Number(player.current_deal_score) || 0
+                            ),
+                        0
+                    );
+
+                pointsWinLoss =
+                    totalLoserScore * multiplier;
+
+            } else {
+
+                // Loser loses his deal score
+                // multiplied by the table multiplier.
+
+                pointsWinLoss =
+                    -(dealScore * multiplier);
+            }
+        }
+
 
         if(
             row.drop_type === "DROP" ||
@@ -6161,9 +8820,20 @@ async function loadDealResults()
             ${row.current_deal_score}
         </td>
 
-        <td style="text-align:center">
-            ${row.points}
+
+        <td style="text-align:center;font-weight:bold;">
+            ${
+                typeof GAME_TYPE !== "undefined" &&
+                GAME_TYPE === "POINTS"
+                    ? (
+                        pointsWinLoss > 0
+                            ? "+" + pointsWinLoss
+                            : pointsWinLoss
+                    )
+                    : row.points
+            }
         </td>
+
 
         <td style="text-align:center;font-weight:bold;">
             ${
@@ -6192,6 +8862,60 @@ async function loadDealResults()
                 showReJoinWindow(me);
             }
         }
+
+        // ==================================================
+        // POINTS : EXIT BUTTON
+        // ==================================================
+
+        if (
+            typeof GAME_TYPE !== "undefined" &&
+            GAME_TYPE === "POINTS"
+        )
+        {
+            const header =
+                document.querySelector(
+                    "#dealResultModal .result-header"
+                );
+
+            if (header)
+            {
+                const oldButton =
+                    document.getElementById(
+                        "btnExitPointsTable"
+                    );
+
+                if (oldButton)
+                {
+                    oldButton.remove();
+                }
+
+                header.insertAdjacentHTML(
+                    "beforeend",
+                    `
+                    <button
+                        id="btnExitPointsTable"
+                        type="button"
+                        onclick="exitPointsTable()"
+                        style="
+                            margin-left:auto;
+                            margin-right:12px;
+                            padding:8px 18px;
+                            border:none;
+                            border-radius:7px;
+                            background:#c62828;
+                            color:white;
+                            font-size:14px;
+                            font-weight:bold;
+                            cursor:pointer;
+                        "
+                    >
+                        EXIT TABLE
+                    </button>
+                    `
+                );
+            }
+        }
+
 
     document.getElementById(
         "dealResultModal"
@@ -6377,21 +9101,117 @@ function clearCurrentDealUI()
 
 window.onload = () => {
 
-  const savedTable = localStorage.getItem("crdg_table");
-  const savedUser = localStorage.getItem("crdg_user_id");
+    const savedTable =
+        localStorage.getItem("crdg_table");
 
-  // only restore minimal state, DO NOT ENTER GAME
-  if (savedTable && savedUser) {
-    state.tableId = parseInt(savedTable);
-    state.userId = savedUser;
-  }
+    const savedUser =
+        localStorage.getItem("crdg_user_id");
 
-  // ALWAYS show login screen first
-  document.getElementById("joinScreen").classList.remove("hidden");
-  document.getElementById("lobbyScreen").classList.add("hidden");
-  document.getElementById("app").classList.add("hidden");
+    // Restore only the minimum state.
+    // Do NOT change screen visibility here.
+    if (savedTable && savedUser) {
+
+        state.tableId =
+            parseInt(savedTable);
+
+        state.userId =
+            savedUser;
+    }
 };
 
+
+
+
+// =====================================================
+// RESTORE MY TABLE SEAT
+// =====================================================
+async function restoreMyTableSeat() {
+
+    const savedSeat =
+        localStorage.getItem("crdg_seat_no");
+
+    const savedFixedSeat =
+        localStorage.getItem("crdg_fixed_seat_no");
+
+    if (
+        savedSeat !== null &&
+        savedFixedSeat !== null &&
+        Number.isFinite(Number(savedSeat)) &&
+        Number.isFinite(Number(savedFixedSeat))
+    ) {
+        state.seatNo = Number(savedSeat);
+        state.fixedSeatNo = Number(savedFixedSeat);
+
+        console.log(
+            "RESTORED MY SEAT FROM LOCAL STORAGE:",
+            {
+                seatNo: state.seatNo,
+                fixedSeatNo: state.fixedSeatNo
+            }
+        );
+
+        return true;
+    }
+
+    // Fallback for older localStorage / older tablepage.
+    const {
+        data: players,
+        error
+    } = await supabaseClient.rpc(
+        "crdg_get_lobby_players",
+        {
+            p_table_id: state.tableId
+        }
+    );
+
+    if (error) {
+        console.error(
+            "RESTORE MY SEAT ERROR:",
+            error
+        );
+        return false;
+    }
+
+    const me = players?.find(
+        player =>
+            String(player.user_id).toLowerCase() ===
+            String(state.userId).toLowerCase()
+    );
+
+    if (!me) {
+        console.error(
+            "RESTORE MY SEAT: Current player not found.",
+            {
+                userId: state.userId,
+                tableId: state.tableId
+            }
+        );
+        return false;
+    }
+
+    state.seatNo = Number(me.seat_no);
+    state.fixedSeatNo = Number(me.fixed_seat_no);
+
+    localStorage.setItem(
+        "crdg_seat_no",
+        String(state.seatNo)
+    );
+
+    localStorage.setItem(
+        "crdg_fixed_seat_no",
+        String(state.fixedSeatNo)
+    );
+
+    console.log(
+        "RESTORED MY SEAT FROM SERVER:",
+        {
+            seatNo: state.seatNo,
+            fixedSeatNo: state.fixedSeatNo
+        }
+    );
+
+    return true;
+}
 
 
 
@@ -6427,60 +9247,138 @@ async function postJoinFlow() {
 // =====================================================
 // FRIENDS PAGE AUTO JOIN
 // =====================================================
-
 document.addEventListener(
     "DOMContentLoaded",
     async function () {
 
-        const tableId =
-            localStorage.getItem("crdg_table");
-
-        const nickname =
-            localStorage.getItem("crdg_nickname");
+        const joinMode =
+            localStorage.getItem("crdg_join_mode");
 
 
-        // ---------------------------------------------
-        // Only auto-join when coming from tablepage
-        // ---------------------------------------------
+        // =================================================
+        // NEW TABLE / NORMAL TABLEPAGE FLOW
+        // =================================================
 
-        if (
-            !tableId ||
-            !nickname
-        ) {
+        if (joinMode === "new") {
+
+            const tableId =
+                localStorage.getItem("crdg_table");
+
+            const nickname =
+                localStorage.getItem("crdg_nickname");
+
+            if (
+                !tableId ||
+                !nickname
+            ) {
+                return;
+            }
+
+            state.tableId =
+                parseInt(tableId);
+
+            state.nickname =
+                nickname;
+
+            state.userId =
+                localStorage.getItem("crdg_user_id");
+
+            // Restore the exact seat BEFORE entering the lobby/game.
+            // tablepage already joined this player, so do not join again.
+            await restoreMyTableSeat();
+
+            state.joined = true;
+
+            // ---------------------------------------------
+            // Restore lobby display values
+            // ---------------------------------------------
+
+            document
+                .getElementById("lobbyTableId")
+                .innerText = state.tableId;
+
+            document
+                .getElementById("lobbySeat")
+                .innerText = state.seatNo;
+
+            await postJoinFlow();
+
+
+            // Consume the one-time mode.
+            localStorage.removeItem(
+                "crdg_join_mode"
+            );
+
             return;
         }
 
 
-        // ---------------------------------------------
-        // Make old join-screen fields contain values
-        // ---------------------------------------------
+        // =================================================
+        // ACTIVE GAME RECOVERY
+        // =================================================
 
-        const tableInput =
-            document.getElementById("tableIdInput");
+        if (joinMode === "active") {
 
-        const nicknameInput =
-            document.getElementById("nickname");
+            const tableId =
+                localStorage.getItem("crdg_table");
+
+            const nickname =
+                localStorage.getItem("crdg_nickname");
+
+            if (
+                !tableId ||
+                !nickname
+            ) {
+                return;
+            }
 
 
-        if (tableInput) {
+            const tableInput =
+                document.getElementById(
+                    "tableIdInput"
+                );
 
-            tableInput.value =
-                tableId;
+            const nicknameInput =
+                document.getElementById(
+                    "nickname"
+                );
+
+
+            if (tableInput) {
+                tableInput.value =
+                    tableId;
+            }
+
+            if (nicknameInput) {
+                nicknameInput.value =
+                    nickname;
+            }
+
+
+            // IMPORTANT:
+            // Active game MUST use the existing
+            // reconnect logic.
+
+            await joinTable();
+
+
+            // Consume the one-time handoff mode.
+
+            localStorage.removeItem(
+                "crdg_join_mode"
+            );
+
+            return;
         }
 
 
-        if (nicknameInput) {
-
-            nicknameInput.value =
-                nickname;
-        }
-
-
-        // ---------------------------------------------
-        // Automatically join
-        // ---------------------------------------------
-
-        await joinTable();
+        // =================================================
+        // NO AUTOMATIC JOIN
+        // =================================================
+        //
+        // Manual Join button continues to use
+        // the existing joinTable() function.
+        //
 
     }
 );
